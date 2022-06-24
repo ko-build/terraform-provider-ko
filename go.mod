@@ -1,4 +1,4 @@
-module github.com/imjasonh/ko-terraform-provider
+module github.com/imjasonh/terraform-provider-ko
 
 go 1.17
 

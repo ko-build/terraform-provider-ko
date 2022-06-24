@@ -20,7 +20,7 @@ func TestAccResourceKoImage(t *testing.T) {
 			Config: testAccResourceKoImage,
 			Check: resource.ComposeTestCheckFunc(
 				resource.TestMatchResourceAttr(
-					"ko_image.foo", "image_ref", regexp.MustCompile("^"+koDockerRepo+"/github.com/imjasonh/ko-terraform-provider@sha256:")),
+					"ko_image.foo", "image_ref", regexp.MustCompile("^"+koDockerRepo+"/github.com/imjasonh/terraform-provider-ko@sha256:")),
 			),
 		}},
 		// TODO: add a test that there's no terraform diff if the image hasn't changed.
@@ -31,6 +31,6 @@ func TestAccResourceKoImage(t *testing.T) {
 
 const testAccResourceKoImage = `
 resource "ko_image" "foo" {
-  importpath = "github.com/imjasonh/ko-terraform-provider"
+  importpath = "github.com/imjasonh/terraform-provider-ko"
 }
 `
