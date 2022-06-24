@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"os"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -29,6 +28,14 @@ func init() {
 func New(version string) func() *schema.Provider {
 	return func() *schema.Provider {
 		p := &schema.Provider{
+			Schema: map[string]*schema.Schema{
+				"docker_repo": {
+					Description: "Container repositor to publish images to. Defaults to `KO_DOCKER_REPO` env var",
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("KO_DOCKER_REPO", ""),
+					Type:        schema.TypeString,
+				},
+			},
 			ResourcesMap: map[string]*schema.Resource{
 				"ko_image": resourceImage(),
 			},
@@ -41,10 +48,14 @@ func New(version string) func() *schema.Provider {
 }
 
 func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
-	return func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
-		if os.Getenv("KO_DOCKER_REPO") == "" {
-			return nil, diag.Errorf("KO_DOCKER_REPO is not set")
+	return func(ctx context.Context, s *schema.ResourceData) (interface{}, diag.Diagnostics) {
+		repo, ok := s.Get("docker_repo").(string)
+		if !ok {
+			return nil, diag.Errorf("expected docker_repo to be string")
 		}
-		return nil, nil
+		if repo == "" {
+			return nil, diag.Errorf("docker_repo attribute or KO_DOCKER_REPO environment variable must be set")
+		}
+		return repo, nil
 	}
 }

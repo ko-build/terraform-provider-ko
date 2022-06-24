@@ -1,3 +1,3 @@
 provider "ko" {
-  # example configuration here
+  docker_repo = "ttl.sh/foo"
 }
