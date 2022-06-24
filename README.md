@@ -1,6 +1,6 @@
 # Terraform Provider for `ko`
 
-This is a work in progress.
+🚨 **This is a work in progress.** 🚨
 
 The intention is to be able to define `ko` builds like this:
 
@@ -21,7 +21,12 @@ resource "google_cloud_run_service" "svc" {
       }
     }
   }
+}
 ```
+
+In this case, the image will be rebuilt every time it's referenced, and will only report as having changed if the image changed since the last time the image resource was read.
+
+This means that `terraform plan` will rebuild all referenced images, but only show diffs if rebuilds resulted in new images since last time.
 
 ---
 
