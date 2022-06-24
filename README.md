@@ -6,52 +6,78 @@ https://registry.terraform.io/providers/imjasonh/ko
 
 ## Usage
 
+To use this provider to build and image and deploy it to Cloud Run:
+
 ```
 terraform {
   required_providers {
     ko = {
-      source = "imjasonh/ko"
-      version = "0.0.1-pre-3" # Or whatever release.
+      source  = "imjasonh/ko"
+      version = "0.0.1-pre-3" // Or whatever release
+    }
+    google = {
+      source  = "hashicorp/google"
+      version = "4.26.0" // Or whatever release
     }
   }
 }
 
 provider "ko" {}
 
-resource "ko_image" "foo" {
-  importpath = "github.com/imjasonh/terraform-provider-ko"
+variable "project" {
+  type = string
 }
-```
 
-And reference the built image by digest in other resources like this:
+provider "google" {
+  project = var.project
+}
 
-```
+resource "ko_image" "test" {
+  // This is a simple HTTP server.
+  importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+}
+
 resource "google_cloud_run_service" "svc" {
+  name = "terraformed"
+  location = "us-east4"
   template {
     spec {
       containers {
-        image = ko_image.foo.image_ref
+        image = ko_image.test.image_ref
       }
     }
+  }
+  traffic {
+    percent         = 100
+    latest_revision = true
   }
 }
 ```
 
 (See docs for [`google_cloud_run_service`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/cloud_run_service))
 
+Setup your environment with:
+
+```
+export KO_DOCKER_REPO=gcr.io/[MY-PROJECT]
+gcloud auth login
+gcloud auth application-default login
+terraform init
+```
+
 Then you can build and apply this change with:
 
 ```
-terraform apply
+terraform apply -var project=[MY-PROJECT]
 ```
 
-In this case, the image will be rebuilt every time it's _referenced_, and will only report as having changed if the image changed since the last time the image resource was read.
+In this case, the image will be rebuilt every time it's _referenced_, and will only report as having changed if the image that was built was different since the last time the image resource was read.
 
 This means that `terraform plan` will rebuild all referenced images, but only show diffs if rebuilds resulted in new images since last time the plan was made.
 
 ---
 
-To test:
+To run tests:
 
 ```
 TF_ACC=1 go test ./internal/provider/...
