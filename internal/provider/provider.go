@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -41,7 +42,9 @@ func New(version string) func() *schema.Provider {
 
 func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	return func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
-		// TODO: check if $KO_DOCKER_REPO is set
+		if os.Getenv("KO_DOCKER_REPO") == "" {
+			return nil, diag.Errorf("KO_DOCKER_REPO is not set")
+		}
 		return nil, nil
 	}
 }

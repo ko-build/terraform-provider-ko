@@ -6,7 +6,7 @@ The intention is to be able to define `ko` builds like this:
 
 ```
 resource "ko_image" "foo" {
-	importpath = "github.com/myrepo/foo"
+  importpath = "github.com/myrepo/foo"
 }
 ```
 

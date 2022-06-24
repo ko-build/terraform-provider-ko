@@ -15,16 +15,7 @@ func TestAccResourceKoImage(t *testing.T) {
 			Config: testAccResourceKoImage,
 			Check: resource.ComposeTestCheckFunc(
 				resource.TestMatchResourceAttr(
-					"ko_image.foo", "image_ref", regexp.MustCompile("^my-repo@sha256:abc$")),
-			),
-		}, {
-			Config: testAccResourceKoImage,
-			PreConfig: func() {
-				changed = true
-			},
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr(
-					"ko_image.foo", "image_ref", regexp.MustCompile("^my-repo@sha256:abc$")),
+					"ko_image.foo", "image_ref", regexp.MustCompile("^gcr.io/jason-chainguard/github.com/imjasonh/ko-terraform-provider@sha256:")),
 			),
 		}},
 	})
@@ -32,6 +23,6 @@ func TestAccResourceKoImage(t *testing.T) {
 
 const testAccResourceKoImage = `
 resource "ko_image" "foo" {
-	importpath = "github.com/google/ko"
+  importpath = "github.com/imjasonh/ko-terraform-provider"
 }
 `
