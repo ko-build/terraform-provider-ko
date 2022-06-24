@@ -1,4 +1,4 @@
-module github.com/hashicorp/terraform-provider-scaffolding
+module github.com/imjasonh/ko-terraform-provider
 
 go 1.17
 

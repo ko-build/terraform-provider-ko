@@ -1,3 +1,3 @@
-provider "scaffolding" {
+provider "ko" {
   # example configuration here
 }
