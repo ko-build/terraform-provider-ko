@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -50,9 +49,7 @@ func resourceImage() *schema.Resource {
 	}
 }
 
-func doBuild(ctx context.Context, ip string) (string, error) {
-	koDockerRepo := os.Getenv("KO_DOCKER_REPO")
-
+func doBuild(ctx context.Context, ip, repo string) (string, error) {
 	b, err := build.NewGo(ctx, ".",
 		build.WithPlatforms("linux/amd64"), // TODO: needs platforms.
 		build.WithBaseImages(func(ctx context.Context, _ string) (name.Reference, build.Result, error) {
@@ -69,7 +66,7 @@ func doBuild(ctx context.Context, ip string) (string, error) {
 		return "", fmt.Errorf("Build: %v", err)
 	}
 
-	p, err := publish.NewDefault(koDockerRepo,
+	p, err := publish.NewDefault(repo,
 		publish.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
 		return "", fmt.Errorf("NewDefault: %v", err)
@@ -81,10 +78,13 @@ func doBuild(ctx context.Context, ip string) (string, error) {
 	return ref.String(), nil
 }
 
-const koDockerRepo = "gcr.io/jason-chainguard"
-
 func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	ref, err := doBuild(ctx, d.Get("importpath").(string))
+	repo, ok := meta.(string)
+	if !ok {
+		return diag.Errorf("meta to be a string")
+	}
+
+	ref, err := doBuild(ctx, d.Get("importpath").(string), repo)
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
@@ -96,8 +96,12 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	// Build the image again, and only unset ID if it changed.
+	repo, ok := meta.(string)
+	if !ok {
+		return diag.Errorf("meta to be a string")
+	}
 
-	ref, err := doBuild(ctx, d.Get("importpath").(string))
+	ref, err := doBuild(ctx, d.Get("importpath").(string), repo)
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
