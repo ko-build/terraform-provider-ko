@@ -249,9 +249,6 @@ github.com/hashicorp/terraform-plugin-sdk/v2/internal/tfdiags
 github.com/hashicorp/terraform-plugin-sdk/v2/meta
 github.com/hashicorp/terraform-plugin-sdk/v2/plugin
 github.com/hashicorp/terraform-plugin-sdk/v2/terraform
-# github.com/hashicorp/terraform-provider-scaffolding v0.0.0-20220614222354-b8f6d615de82
-## explicit; go 1.17
-github.com/hashicorp/terraform-provider-scaffolding/internal/provider
 # github.com/hashicorp/terraform-registry-address v0.0.0-20210412075316-9b2996cce896
 ## explicit; go 1.14
 github.com/hashicorp/terraform-registry-address
