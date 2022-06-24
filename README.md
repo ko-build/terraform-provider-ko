@@ -2,11 +2,24 @@
 
 🚨 **This is a work in progress.** 🚨
 
-The intention is to be able to define `ko` builds like this:
+https://registry.terraform.io/providers/imjasonh/ko
+
+## Usage
 
 ```
+terraform {
+  required_providers {
+    ko = {
+      source = "imjasonh/ko"
+      version = "0.0.1-pre-3" # Or whatever release.
+    }
+  }
+}
+
+provider "ko" {}
+
 resource "ko_image" "foo" {
-  importpath = "github.com/myrepo/foo"
+  importpath = "github.com/imjasonh/terraform-provider-ko"
 }
 ```
 
@@ -24,9 +37,17 @@ resource "google_cloud_run_service" "svc" {
 }
 ```
 
-In this case, the image will be rebuilt every time it's referenced, and will only report as having changed if the image changed since the last time the image resource was read.
+(See docs for [`google_cloud_run_service`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/cloud_run_service))
 
-This means that `terraform plan` will rebuild all referenced images, but only show diffs if rebuilds resulted in new images since last time.
+Then you can build and apply this change with:
+
+```
+terraform apply
+```
+
+In this case, the image will be rebuilt every time it's _referenced_, and will only report as having changed if the image changed since the last time the image resource was read.
+
+This means that `terraform plan` will rebuild all referenced images, but only show diffs if rebuilds resulted in new images since last time the plan was made.
 
 ---
 
