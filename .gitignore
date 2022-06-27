@@ -1,7 +1,6 @@
 *.dll
 *.exe
 .DS_Store
-example.tf
 terraform.tfplan
 terraform.tfstate
 bin/
@@ -35,3 +34,4 @@ website/vendor
 *.winfile eol=crlf
 
 terraform-provider-ko
+.terraform.lock.hcl 

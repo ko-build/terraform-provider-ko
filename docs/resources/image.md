@@ -23,11 +23,15 @@ resource "ko_image" "example" {
 
 ### Required
 
-- `importpath` (String) import path blah
+- `importpath` (String) import path to build
+
+### Optional
+
+- `platforms` (String) platforms to build
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-- `image_ref` (String) image at digest
+- `image_ref` (String) built image reference by digest
 
 

@@ -31,7 +31,7 @@ func resourceImage() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"importpath": {
-				Description: "import path blah",
+				Description: "import path to build",
 				Type:        schema.TypeString,
 				Required:    true,
 				ValidateDiagFunc: func(data interface{}, path cty.Path) diag.Diagnostics {
@@ -40,8 +40,15 @@ func resourceImage() *schema.Resource {
 				},
 				ForceNew: true, // Any time this changes, don't try to update in-place, just create it.
 			},
+			"platforms": {
+				Description: "platforms to build",
+				Default:     "linux/amd64",
+				Optional:    true,
+				Type:        schema.TypeString, // TODO: type list of strings?
+				ForceNew:    true,              // Any time this changes, don't try to update in-place, just create it.
+			},
 			"image_ref": {
-				Description: "image at digest",
+				Description: "built image reference by digest",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
@@ -49,15 +56,14 @@ func resourceImage() *schema.Resource {
 	}
 }
 
-func doBuild(ctx context.Context, ip, repo string) (string, error) {
+func doBuild(ctx context.Context, ip, platforms, repo string) (string, error) {
 	b, err := build.NewGo(ctx, ".",
-		build.WithPlatforms("linux/amd64"), // TODO: needs platforms.
+		build.WithPlatforms(platforms),
 		build.WithBaseImages(func(ctx context.Context, _ string) (name.Reference, build.Result, error) {
 			ref := name.MustParseReference(baseImage)
 			base, err := remote.Index(ref, remote.WithContext(ctx))
 			return ref, base, err
-		}),
-	)
+		}))
 	if err != nil {
 		return "", fmt.Errorf("NewGo: %v", err)
 	}
@@ -84,7 +90,10 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("meta to be a string")
 	}
 
-	ref, err := doBuild(ctx, d.Get("importpath").(string), repo)
+	ref, err := doBuild(ctx,
+		d.Get("importpath").(string),
+		d.Get("platforms").(string),
+		repo)
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
@@ -101,11 +110,15 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.Errorf("meta to be a string")
 	}
 
-	ref, err := doBuild(ctx, d.Get("importpath").(string), repo)
+	ref, err := doBuild(ctx,
+		d.Get("importpath").(string),
+		d.Get("platforms").(string),
+		repo)
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
 
+	d.Set("image_ref", ref)
 	if ref != d.Id() {
 		d.SetId("")
 	} else {

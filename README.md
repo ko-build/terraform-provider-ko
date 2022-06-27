@@ -74,11 +74,3 @@ terraform apply -var project=[MY-PROJECT]
 In this case, the image will be rebuilt every time it's _referenced_, and will only report as having changed if the image that was built was different since the last time the image resource was read.
 
 This means that `terraform plan` will rebuild all referenced images, but only show diffs if rebuilds resulted in new images since last time the plan was made.
-
----
-
-To run tests:
-
-```
-TF_ACC=1 go test ./internal/provider/...
-```
