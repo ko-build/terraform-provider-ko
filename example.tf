@@ -2,7 +2,7 @@ terraform {
   required_providers {
     ko = {
       source  = "imjasonh/ko"
-      version = "0.0.1-pre.3"
+      version = "0.0.100"
     }
     google = {
       source  = "hashicorp/google"
