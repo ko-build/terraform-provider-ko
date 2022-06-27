@@ -19,23 +19,45 @@ func TestAccResourceKoImage(t *testing.T) {
 	url := fmt.Sprintf("localhost:%s", parts[len(parts)-1])
 	t.Setenv("KO_DOCKER_REPO", url)
 
+	imageRefRE := regexp.MustCompile("^" + url + "/github.com/imjasonh/terraform-provider-ko/cmd/test@sha256:")
+
 	resource.Test(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{{
-			Config: testAccResourceKoImage,
+			Config: `
+			resource "ko_image" "foo" {
+			  importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+			}
+			`,
 			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr(
-					"ko_image.foo", "image_ref", regexp.MustCompile("^"+url+"/github.com/imjasonh/terraform-provider-ko/cmd/test@sha256:")),
+				resource.TestMatchResourceAttr("ko_image.foo", "image_ref", imageRefRE),
 			),
 		}},
 		// TODO: add a test that there's no terraform diff if the image hasn't changed.
 		// TODO: add a test that there's a terraform diff if the image has changed.
 		// TODO: add a test covering what happens if the build fails for any reason.
 	})
-}
 
-const testAccResourceKoImage = `
-resource "ko_image" "foo" {
-  importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+	// This tests building an image and using it as a base image for another image.
+	// Mostly just to prove we can.
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{{
+			Config: `
+			resource "ko_image" "base" {
+			  importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+			}
+			resource "ko_image" "top" {
+				importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+				base_image = "${ko_image.base.image_ref}"
+			}
+			`,
+			Check: resource.ComposeTestCheckFunc(
+				resource.TestMatchResourceAttr("ko_image.top", "image_ref", imageRefRE),
+				resource.TestMatchResourceAttr("ko_image.top", "base_image", imageRefRE),
+				resource.TestMatchResourceAttr("ko_image.base", "image_ref", imageRefRE),
+				// TODO(jason): Check that top's base_image attr matches base's image_ref exactly.
+			),
+		}},
+	})
 }
-`
