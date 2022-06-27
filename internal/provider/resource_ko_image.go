@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -16,8 +17,7 @@ import (
 )
 
 const (
-	baseImage  = "gcr.io/distroless/static:nonroot"
-	targetRepo = "gcr.io/jason-chainguard"
+	defaultBaseImage = "gcr.io/distroless/static:nonroot"
 )
 
 func resourceImage() *schema.Resource {
@@ -47,6 +47,13 @@ func resourceImage() *schema.Resource {
 				Type:        schema.TypeString, // TODO: type list of strings?
 				ForceNew:    true,              // Any time this changes, don't try to update in-place, just create it.
 			},
+			"base_image": {
+				Description: "base image to use",
+				Default:     defaultBaseImage,
+				Optional:    true,
+				Type:        schema.TypeString,
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
 			"image_ref": {
 				Description: "built image reference by digest",
 				Type:        schema.TypeString,
@@ -56,44 +63,76 @@ func resourceImage() *schema.Resource {
 	}
 }
 
-func doBuild(ctx context.Context, ip, platforms, repo string) (string, error) {
+type buildOptions struct {
+	ip         string
+	dockerRepo string
+	platforms  string
+	baseImage  string
+}
+
+var baseImages sync.Map // Cache of base image lookups.
+
+func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 	b, err := build.NewGo(ctx, ".",
-		build.WithPlatforms(platforms),
+		build.WithPlatforms(opts.platforms),
 		build.WithBaseImages(func(ctx context.Context, _ string) (name.Reference, build.Result, error) {
-			ref := name.MustParseReference(baseImage)
-			base, err := remote.Index(ref, remote.WithContext(ctx))
-			return ref, base, err
+			ref, err := name.ParseReference(opts.baseImage)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if cached, found := baseImages.Load(opts.baseImage); found {
+				return ref, cached.(build.Result), nil
+			}
+
+			desc, err := remote.Get(ref,
+				remote.WithAuthFromKeychain(authn.DefaultKeychain))
+			if err != nil {
+				return nil, nil, err
+			}
+			if desc.MediaType.IsImage() {
+				img, err := desc.Image()
+				baseImages.Store(opts.baseImage, img)
+				return ref, img, err
+			}
+			if desc.MediaType.IsIndex() {
+				idx, err := desc.ImageIndex()
+				baseImages.Store(opts.baseImage, idx)
+				return ref, idx, err
+			}
+			return nil, nil, fmt.Errorf("Unexpected base image media type: %s", desc.MediaType)
 		}))
 	if err != nil {
 		return "", fmt.Errorf("NewGo: %v", err)
 	}
-	r, err := b.Build(ctx, ip)
+	r, err := b.Build(ctx, opts.ip)
 	if err != nil {
 		return "", fmt.Errorf("Build: %v", err)
 	}
 
-	p, err := publish.NewDefault(repo,
+	p, err := publish.NewDefault(opts.dockerRepo,
 		publish.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
 		return "", fmt.Errorf("NewDefault: %v", err)
 	}
-	ref, err := p.Publish(ctx, r, ip)
+	ref, err := p.Publish(ctx, r, opts.ip)
 	if err != nil {
 		return "", fmt.Errorf("Publish: %v", err)
 	}
 	return ref.String(), nil
 }
 
-func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	repo, ok := meta.(string)
-	if !ok {
-		return diag.Errorf("meta to be a string")
+func fromData(d *schema.ResourceData, repo string) buildOptions {
+	return buildOptions{
+		ip:         d.Get("importpath").(string),
+		dockerRepo: repo,
+		platforms:  d.Get("platforms").(string),
+		baseImage:  d.Get("base_image").(string),
 	}
+}
 
-	ref, err := doBuild(ctx,
-		d.Get("importpath").(string),
-		d.Get("platforms").(string),
-		repo)
+func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	ref, err := doBuild(ctx, fromData(d, meta.(string)))
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
@@ -104,16 +143,7 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 }
 
 func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// Build the image again, and only unset ID if it changed.
-	repo, ok := meta.(string)
-	if !ok {
-		return diag.Errorf("meta to be a string")
-	}
-
-	ref, err := doBuild(ctx,
-		d.Get("importpath").(string),
-		d.Get("platforms").(string),
-		repo)
+	ref, err := doBuild(ctx, fromData(d, meta.(string)))
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
