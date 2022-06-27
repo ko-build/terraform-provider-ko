@@ -56,15 +56,14 @@ func resourceImage() *schema.Resource {
 	}
 }
 
-func doBuild(ctx context.Context, ip, repo, platforms string) (string, error) {
+func doBuild(ctx context.Context, ip, platforms, repo string) (string, error) {
 	b, err := build.NewGo(ctx, ".",
 		build.WithPlatforms(platforms),
 		build.WithBaseImages(func(ctx context.Context, _ string) (name.Reference, build.Result, error) {
 			ref := name.MustParseReference(baseImage)
 			base, err := remote.Index(ref, remote.WithContext(ctx))
 			return ref, base, err
-		}),
-	)
+		}))
 	if err != nil {
 		return "", fmt.Errorf("NewGo: %v", err)
 	}
