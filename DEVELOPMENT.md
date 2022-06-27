@@ -4,7 +4,7 @@
 
 After that, `go generate ./...`
 
-# Running acceptance tests:
+# Running acceptance tests
 
 ```
 TF_ACC=1 go test ./internal/provider/...
