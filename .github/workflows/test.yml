@@ -22,7 +22,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -41,13 +40,5 @@ jobs:
         terraform_wrapper: false
 
     - run: go mod download
-    - run: go build -v .
-        
-    - name: TF acceptance tests
-      timeout-minutes: 10
-      env:
-        TF_ACC: "1"
-        KO_DOCKER_REPO: ko.local
-
-      run: |
-        go test -v -cover ./internal/provider/
+    - run: go build -v .  
+    - run: TF_ACC=1 go test -v -cover ./internal/provider/
