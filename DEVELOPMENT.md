@@ -1,4 +1,10 @@
-To run tests:
+# Generating docs
+
+**The repo must be checked out into a directory named `terraform-provider-ko`.**
+
+After that, `go generate ./...`
+
+# Running acceptance tests:
 
 ```
 TF_ACC=1 go test ./internal/provider/...
@@ -6,7 +12,7 @@ TF_ACC=1 go test ./internal/provider/...
 
 ---
 
-Iterating locally:
+# Iterating locally
 
 This relies on https://www.terraform.io/cli/config/config-file#implied-local-mirror-directories
 
