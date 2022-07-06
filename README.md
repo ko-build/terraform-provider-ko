@@ -34,7 +34,7 @@ provider "google" {
 
 resource "ko_image" "test" {
   // This is a simple HTTP server.
-  importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
 }
 
 resource "google_cloud_run_service" "svc" {

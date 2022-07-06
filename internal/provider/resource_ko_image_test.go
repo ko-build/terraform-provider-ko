@@ -19,14 +19,14 @@ func TestAccResourceKoImage(t *testing.T) {
 	url := fmt.Sprintf("localhost:%s", parts[len(parts)-1])
 	t.Setenv("KO_DOCKER_REPO", url)
 
-	imageRefRE := regexp.MustCompile("^" + url + "/github.com/imjasonh/terraform-provider-ko/cmd/test@sha256:")
+	imageRefRE := regexp.MustCompile("^" + url + "/github.com/chainguard-dev/terraform-provider-ko/cmd/test@sha256:")
 
 	resource.Test(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{{
 			Config: `
 			resource "ko_image" "foo" {
-			  importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+			  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
 			}
 			`,
 			Check: resource.ComposeTestCheckFunc(
@@ -45,10 +45,10 @@ func TestAccResourceKoImage(t *testing.T) {
 		Steps: []resource.TestStep{{
 			Config: `
 			resource "ko_image" "base" {
-			  importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+			  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
 			}
 			resource "ko_image" "top" {
-				importpath = "github.com/imjasonh/terraform-provider-ko/cmd/test"
+				importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
 				base_image = "${ko_image.base.image_ref}"
 			}
 			`,
