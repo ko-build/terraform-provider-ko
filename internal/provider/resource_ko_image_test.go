@@ -60,4 +60,21 @@ func TestAccResourceKoImage(t *testing.T) {
 			),
 		}},
 	})
+
+	// Test that working_dir can be set.
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{{
+			Config: `
+			resource "ko_image" "foo" {
+			  importpath = "."
+			  working_dir = "./cmd/test"
+			}
+			`,
+			Check: resource.ComposeTestCheckFunc(
+				resource.TestMatchResourceAttr("ko_image.foo", "image_ref", imageRefRE),
+				// TODO(jason): Check that top's base_image attr matches base's image_ref exactly.
+			),
+		}},
+	})
 }
