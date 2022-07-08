@@ -16,7 +16,7 @@ func TestAccResourceKoImage(t *testing.T) {
 	srv := httptest.NewServer(registry.New())
 	defer srv.Close()
 	parts := strings.Split(srv.URL, ":")
-	url := fmt.Sprintf("localhost:%s", parts[len(parts)-1])
+	url := fmt.Sprintf("localhost:%s/test", parts[len(parts)-1])
 	t.Setenv("KO_DOCKER_REPO", url)
 
 	imageRefRE := regexp.MustCompile("^" + url + "/github.com/chainguard-dev/terraform-provider-ko/cmd/test@sha256:")
@@ -62,17 +62,19 @@ func TestAccResourceKoImage(t *testing.T) {
 	})
 
 	// Test that working_dir can be set.
+	// TODO: Setting the importpath as "." means the image gets pushed as $KO_DOCKER_REPO exactly,
+	// and we probably want to expand this to be the full resolved importpath of the package.
 	resource.Test(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{{
 			Config: `
 			resource "ko_image" "foo" {
 			  importpath = "."
-			  working_dir = "./cmd/test"
+			  working_dir = "../../cmd/test"
 			}
 			`,
 			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_image.foo", "image_ref", imageRefRE),
+				resource.TestMatchResourceAttr("ko_image.foo", "image_ref", regexp.MustCompile("^"+url+"@sha256:")),
 				// TODO(jason): Check that top's base_image attr matches base's image_ref exactly.
 			),
 		}},
