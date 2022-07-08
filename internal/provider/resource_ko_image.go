@@ -40,6 +40,13 @@ func resourceImage() *schema.Resource {
 				},
 				ForceNew: true, // Any time this changes, don't try to update in-place, just create it.
 			},
+			"working_dir": {
+				Description: "working directory for the build",
+				Optional:    true,
+				Default:     ".",
+				Type:        schema.TypeString,
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
 			"platforms": {
 				Description: "platforms to build",
 				Default:     "linux/amd64",
@@ -65,6 +72,7 @@ func resourceImage() *schema.Resource {
 
 type buildOptions struct {
 	ip         string
+	workingDir string
 	dockerRepo string
 	platforms  string
 	baseImage  string
@@ -73,7 +81,7 @@ type buildOptions struct {
 var baseImages sync.Map // Cache of base image lookups.
 
 func doBuild(ctx context.Context, opts buildOptions) (string, error) {
-	b, err := build.NewGo(ctx, ".",
+	b, err := build.NewGo(ctx, opts.workingDir,
 		build.WithPlatforms(opts.platforms),
 		build.WithBaseImages(func(ctx context.Context, _ string) (name.Reference, build.Result, error) {
 			ref, err := name.ParseReference(opts.baseImage)
@@ -125,6 +133,7 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 func fromData(d *schema.ResourceData, repo string) buildOptions {
 	return buildOptions{
 		ip:         d.Get("importpath").(string),
+		workingDir: d.Get("working_dir").(string),
 		dockerRepo: repo,
 		platforms:  d.Get("platforms").(string),
 		baseImage:  d.Get("base_image").(string),
