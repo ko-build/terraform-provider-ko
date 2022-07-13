@@ -30,14 +30,24 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
-      -
-        name: Import GPG key
-        id: import_gpg
-        uses: hashicorp/ghaction-import-gpg@v2.1.0
-        env:
-          # These secrets will need to be configured for the repository:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          PASSPHRASE: ${{ secrets.PASSPHRASE }}
+
+#       -
+#         name: Import GPG key
+#         id: import_gpg
+#         uses: hashicorp/ghaction-import-gpg@v2.1.0
+#         env:
+#           # These secrets will need to be configured for the repository:
+#           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+#           PASSPHRASE: ${{ secrets.PASSPHRASE }}
+
+      - 
+        run: |
+          set -x
+          echo -e "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --import --batch --no-tty
+          echo "hello world" > temp.txt
+          gpg --detach-sig --yes -v --output=/dev/null --pinentry-mode loopback --passphrase "${{ secrets.PASSPHRASE }}" temp.txt
+          rm temp.txt
+
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v3.0.0
