@@ -53,9 +53,6 @@ func resourceImage() *schema.Resource {
 				Type:        schema.TypeList,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
-				DefaultFunc: func() (interface{}, error) {
-					return []string{"linux/amd64"}, nil
-				},
 			},
 			"base_image": {
 				Description: "base image to use",
