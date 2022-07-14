@@ -33,11 +33,8 @@ func main() {
 	flag.Parse()
 
 	opts := &plugin.ServeOpts{
-		Debug: debugMode,
-
-		// TODO: update this string with the full name of your provider as used in your configs
-		ProviderAddr: "registry.terraform.io/imjasonh/ko", // TODO: chainguard
-
+		Debug:        debugMode,
+		ProviderAddr: "registry.terraform.io/chainguard-dev/ko",
 		ProviderFunc: provider.New(version),
 	}
 

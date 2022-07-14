@@ -2,7 +2,7 @@
 
 🚨 **This is a work in progress.** 🚨
 
-https://registry.terraform.io/providers/imjasonh/ko
+https://registry.terraform.io/providers/chainguard-dev/ko
 
 ## Usage
 
@@ -12,8 +12,8 @@ To use this provider to build and image and deploy it to Cloud Run:
 terraform {
   required_providers {
     ko = {
-      source  = "imjasonh/ko"
-      version = "0.0.1-pre-3" // Or whatever release
+      source  = "chainguard-dev/ko"
+      version = "0.0.2" // Or whatever release
     }
     google = {
       source  = "hashicorp/google"
