@@ -18,7 +18,15 @@ import (
 
 const (
 	defaultBaseImage = "gcr.io/distroless/static:nonroot"
+	version          = "devel"
 )
+
+var validTypes = map[string]struct{}{
+	"spdx":         {},
+	"cyclonedx":    {},
+	"go.version-m": {},
+	"none":         {},
+}
 
 func resourceImage() *schema.Resource {
 	return &schema.Resource{
@@ -61,6 +69,20 @@ func resourceImage() *schema.Resource {
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
+			"sbom": {
+				Description: "sbom type to generate",
+				Default:     "spdx",
+				Optional:    true,
+				Type:        schema.TypeString,
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+				ValidateDiagFunc: func(data interface{}, path cty.Path) diag.Diagnostics {
+					v := data.(string)
+					if _, found := validTypes[v]; !found {
+						return diag.Errorf("Invalid sbom type: %q", v)
+					}
+					return nil
+				},
+			},
 			"image_ref": {
 				Description: "built image reference by digest",
 				Type:        schema.TypeString,
@@ -76,12 +98,13 @@ type buildOptions struct {
 	dockerRepo string
 	platforms  []string
 	baseImage  string
+	sbom       string
 }
 
 var baseImages sync.Map // Cache of base image lookups.
 
 func doBuild(ctx context.Context, opts buildOptions) (string, error) {
-	b, err := build.NewGo(ctx, opts.workingDir,
+	bo := []build.Option{
 		build.WithPlatforms(opts.platforms...),
 		build.WithBaseImages(func(ctx context.Context, _ string) (name.Reference, build.Result, error) {
 			ref, err := name.ParseReference(opts.baseImage)
@@ -109,7 +132,22 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 				return ref, idx, err
 			}
 			return nil, nil, fmt.Errorf("Unexpected base image media type: %s", desc.MediaType)
-		}))
+		}),
+	}
+	switch opts.sbom {
+	case "spdx":
+		bo = append(bo, build.WithSPDX(version))
+	case "cyclonedx":
+		bo = append(bo, build.WithCycloneDX())
+	case "go.version-m":
+		bo = append(bo, build.WithGoVersionSBOM())
+	case "none":
+		// don't do anything.
+	default:
+		return "", fmt.Errorf("Unknown sbom type: %q", opts.sbom)
+	}
+
+	b, err := build.NewGo(ctx, opts.workingDir, bo...)
 	if err != nil {
 		return "", fmt.Errorf("NewGo: %v", err)
 	}
@@ -137,6 +175,7 @@ func fromData(d *schema.ResourceData, repo string) buildOptions {
 		dockerRepo: repo,
 		platforms:  toStringSlice(d.Get("platforms").([]interface{})),
 		baseImage:  d.Get("base_image").(string),
+		sbom:       d.Get("sbom").(string),
 	}
 }
 
