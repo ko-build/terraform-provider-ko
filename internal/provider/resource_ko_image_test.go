@@ -79,4 +79,34 @@ func TestAccResourceKoImage(t *testing.T) {
 			),
 		}},
 	})
+
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{{
+			Config: `
+			resource "ko_image" "foo" {
+			  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
+			  platforms = ["linux/amd64", "linux/arm64"]
+			}
+			`,
+			Check: resource.ComposeTestCheckFunc(
+				resource.TestMatchResourceAttr("ko_image.foo", "image_ref", imageRefRE),
+			),
+		}},
+	})
+
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{{
+			Config: `
+			resource "ko_image" "foo" {
+			  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
+			  platforms = ["all"]
+			}
+			`,
+			Check: resource.ComposeTestCheckFunc(
+				resource.TestMatchResourceAttr("ko_image.foo", "image_ref", imageRefRE),
+			),
+		}},
+	})
 }

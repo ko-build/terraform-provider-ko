@@ -28,7 +28,7 @@ resource "ko_image" "example" {
 ### Optional
 
 - `base_image` (String) base image to use
-- `platforms` (String) platforms to build
+- `platforms` (List of String) platforms to build
 - `working_dir` (String) working directory for the build
 
 ### Read-Only

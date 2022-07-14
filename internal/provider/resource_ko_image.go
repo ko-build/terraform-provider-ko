@@ -49,10 +49,13 @@ func resourceImage() *schema.Resource {
 			},
 			"platforms": {
 				Description: "platforms to build",
-				Default:     "linux/amd64",
 				Optional:    true,
-				Type:        schema.TypeString, // TODO: type list of strings?
-				ForceNew:    true,              // Any time this changes, don't try to update in-place, just create it.
+				Type:        schema.TypeList,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+				DefaultFunc: func() (interface{}, error) {
+					return []string{"linux/amd64"}, nil
+				},
 			},
 			"base_image": {
 				Description: "base image to use",
@@ -74,7 +77,7 @@ type buildOptions struct {
 	ip         string
 	workingDir string
 	dockerRepo string
-	platforms  string
+	platforms  []string
 	baseImage  string
 }
 
@@ -82,7 +85,7 @@ var baseImages sync.Map // Cache of base image lookups.
 
 func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 	b, err := build.NewGo(ctx, opts.workingDir,
-		build.WithPlatforms(opts.platforms),
+		build.WithPlatforms(opts.platforms...),
 		build.WithBaseImages(func(ctx context.Context, _ string) (name.Reference, build.Result, error) {
 			ref, err := name.ParseReference(opts.baseImage)
 			if err != nil {
@@ -135,9 +138,25 @@ func fromData(d *schema.ResourceData, repo string) buildOptions {
 		ip:         d.Get("importpath").(string),
 		workingDir: d.Get("working_dir").(string),
 		dockerRepo: repo,
-		platforms:  d.Get("platforms").(string),
+		platforms:  toStringSlice(d.Get("platforms").([]interface{})),
 		baseImage:  d.Get("base_image").(string),
 	}
+}
+
+func toStringSlice(in []interface{}) []string {
+	if len(in) == 0 {
+		return []string{"linux/amd64"}
+	}
+
+	out := make([]string, len(in))
+	for i, ii := range in {
+		if s, ok := ii.(string); ok {
+			out[i] = s
+		} else {
+			panic(fmt.Errorf("Expected string, got %T", ii))
+		}
+	}
+	return out
 }
 
 func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
