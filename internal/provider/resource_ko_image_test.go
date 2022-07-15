@@ -27,6 +27,7 @@ func TestAccResourceKoImage(t *testing.T) {
 			Config: `
 			resource "ko_image" "foo" {
 			  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
+			  sbom = "spdx"
 			}
 			`,
 			Check: resource.ComposeTestCheckFunc(
@@ -109,4 +110,21 @@ func TestAccResourceKoImage(t *testing.T) {
 			),
 		}},
 	})
+
+	for _, sbom := range []string{"spdx", "cyclonedx", "go.version-m", "none"} {
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: providerFactories,
+			Steps: []resource.TestStep{{
+				Config: fmt.Sprintf(`
+			resource "ko_image" "foo" {
+			  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
+			  sbom = %q
+			}
+			`, sbom),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestMatchResourceAttr("ko_image.foo", "image_ref", imageRefRE),
+				),
+			}},
+		})
+	}
 }
