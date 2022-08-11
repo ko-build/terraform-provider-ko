@@ -10,6 +10,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/ko/pkg/build"
+	"github.com/google/ko/pkg/commands"
+	"github.com/google/ko/pkg/commands/options"
 	"github.com/google/ko/pkg/publish"
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -92,6 +94,27 @@ func resourceImage() *schema.Resource {
 	}
 }
 
+type buildOpts struct {
+	*options.BuildOptions
+}
+
+func (o *buildOpts) makeBuilder(ctx context.Context) (*build.Caching, error) {
+	builder, err := commands.NewBuilder(ctx, o.BuildOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return build.NewCaching(builder)
+}
+
+type publishOpts struct {
+	*options.PublishOptions
+}
+
+func (o *publishOpts) makePublisher() (publish.Interface, error) {
+	return commands.NewPublisher(o.PublishOptions)
+}
+
 type buildOptions struct {
 	ip         string
 	workingDir string
@@ -101,18 +124,16 @@ type buildOptions struct {
 	sbom       string
 }
 
-var baseImages sync.Map // Cache of base image lookups.
-
-func doBuild(ctx context.Context, opts buildOptions) (string, error) {
+func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) {
 	bo := []build.Option{
-		build.WithPlatforms(opts.platforms...),
-		build.WithBaseImages(func(ctx context.Context, _ string) (name.Reference, build.Result, error) {
-			ref, err := name.ParseReference(opts.baseImage)
+		build.WithPlatforms(o.platforms...),
+		build.WithBaseImages(func(ctx context.Context, s string) (name.Reference, build.Result, error) {
+			ref, err := name.ParseReference(o.baseImage)
 			if err != nil {
 				return nil, nil, err
 			}
 
-			if cached, found := baseImages.Load(opts.baseImage); found {
+			if cached, found := baseImages.Load(o.baseImage); found {
 				return ref, cached.(build.Result), nil
 			}
 
@@ -123,18 +144,18 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 			}
 			if desc.MediaType.IsImage() {
 				img, err := desc.Image()
-				baseImages.Store(opts.baseImage, img)
+				baseImages.Store(o.baseImage, img)
 				return ref, img, err
 			}
 			if desc.MediaType.IsIndex() {
 				idx, err := desc.ImageIndex()
-				baseImages.Store(opts.baseImage, idx)
+				baseImages.Store(o.baseImage, idx)
 				return ref, idx, err
 			}
-			return nil, nil, fmt.Errorf("Unexpected base image media type: %s", desc.MediaType)
+			return nil, nil, fmt.Errorf("unexpected base image media type: %s", desc.MediaType)
 		}),
 	}
-	switch opts.sbom {
+	switch o.sbom {
 	case "spdx":
 		bo = append(bo, build.WithSPDX(version))
 	case "cyclonedx":
@@ -144,16 +165,26 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 	case "none":
 		// don't do anything.
 	default:
-		return "", fmt.Errorf("Unknown sbom type: %q", opts.sbom)
+		return nil, fmt.Errorf("unknown sbom type: %q", o.sbom)
 	}
 
-	b, err := build.NewGo(ctx, opts.workingDir, bo...)
+	b, err := build.NewGo(ctx, o.workingDir, bo...)
+	if err != nil {
+		return nil, fmt.Errorf("NewGo: %v", err)
+	}
+	return build.NewCaching(b)
+}
+
+var baseImages sync.Map // Cache of base image lookups.
+
+func doBuild(ctx context.Context, opts buildOptions) (string, error) {
+	b, err := opts.makeBuilder(ctx)
 	if err != nil {
 		return "", fmt.Errorf("NewGo: %v", err)
 	}
 	r, err := b.Build(ctx, opts.ip)
 	if err != nil {
-		return "", fmt.Errorf("Build: %v", err)
+		return "", fmt.Errorf("build: %v", err)
 	}
 
 	p, err := publish.NewDefault(opts.dockerRepo,
@@ -163,7 +194,7 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 	}
 	ref, err := p.Publish(ctx, r, opts.ip)
 	if err != nil {
-		return "", fmt.Errorf("Publish: %v", err)
+		return "", fmt.Errorf("publish: %v", err)
 	}
 	return ref.String(), nil
 }

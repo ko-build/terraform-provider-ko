@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kodata
+  namespace: default
+spec:
+  containers:
+  - name: obiwan
+    image: ko://github.com/google/ko/test
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: yodata
+  namespace: default
+spec:
+  containers:
+  - name: obiwan
+    image: ko://github.com/google/ko/test
+  restartPolicy: Never
+
