@@ -1,0 +1,14 @@
+---
+# comments should be ignored
+0: ko://github.com/google/ko/test
+
+---
+# this should get skipped
+---
+
+---
+1: ko://github.com/google/ko/test
+# erroneous whitespaces should be ignored
+
+
+

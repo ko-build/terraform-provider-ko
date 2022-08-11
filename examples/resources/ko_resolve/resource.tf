@@ -17,8 +17,8 @@ provider "kubernetes" {
 }
 
 resource "ko_resolve" "example" {
-  filenames = ["../../../internal/provider/testdata/"]
-  recursive = true
+  filenames = ["../../../internal/provider/testdata/k8s.yaml"]
+  recursive = false
 }
 
 output "id" {
@@ -26,10 +26,7 @@ output "id" {
 }
 
 output "manifests" {
-  value = [
-    for m in ko_resolve.example.manifests :
-    yamldecode(m)
-  ]
+  value = ko_resolve.example.manifests
 }
 
 # resource "kubernetes_manifest" "these" {
