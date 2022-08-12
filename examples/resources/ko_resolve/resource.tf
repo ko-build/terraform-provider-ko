@@ -3,7 +3,7 @@ provider "ko" {
 }
 
 resource "ko_resolve" "example" {
-  filenames = ["../../../internal/provider/testdata/k8s.yaml"]
+  filenames = ["../../../testdata/k8s.yaml"]
   recursive = false
 }
 
