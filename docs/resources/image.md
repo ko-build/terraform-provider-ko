@@ -28,8 +28,8 @@ resource "ko_image" "example" {
 ### Optional
 
 - `base_image` (String) base image to use
-- `platforms` (List of String) platforms to build
-- `sbom` (String) sbom type to generate
+- `platforms` (List of String) Which platform to use when pulling a multi-platform base. Format: all | <os>[/<arch>[/<variant>]][,platform]*
+- `sbom` (String) The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).
 - `working_dir` (String) working directory for the build
 
 ### Read-Only
