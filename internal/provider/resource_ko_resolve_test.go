@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestAccResourceKoResolve(t *testing.T) {
                 }
                 `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("ko_resolve.foo", "manifests.0", fmt.Sprintf("image: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:6e6657c6848a19f896cc22b6934453beca89f3bcb2aa5cb2d05db8aaffa45755\n", url)),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^image: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
 				),
 			},
 			{
@@ -40,8 +41,8 @@ func TestAccResourceKoResolve(t *testing.T) {
                 }
                 `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("ko_resolve.foo", "manifests.0", fmt.Sprintf("0: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:6e6657c6848a19f896cc22b6934453beca89f3bcb2aa5cb2d05db8aaffa45755\n", url)),
-					resource.TestCheckResourceAttr("ko_resolve.foo", "manifests.1", fmt.Sprintf("1: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:6e6657c6848a19f896cc22b6934453beca89f3bcb2aa5cb2d05db8aaffa45755\n", url)),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^0: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("^1: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
 				),
 			},
 			{
@@ -52,7 +53,7 @@ func TestAccResourceKoResolve(t *testing.T) {
                 }
                 `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("ko_resolve.foo", "manifests.0", fmt.Sprintf(`apiVersion: v1
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile(fmt.Sprintf(`apiVersion: v1
 kind: Pod
 metadata:
     name: kodata
@@ -61,7 +62,7 @@ spec:
     containers:
         - image: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:6e6657c6848a19f896cc22b6934453beca89f3bcb2aa5cb2d05db8aaffa45755
           name: obiwan
-`, url),
+`, url)),
 					)),
 			},
 			{
@@ -72,8 +73,8 @@ spec:
 			    }
 			    `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("ko_resolve.foo", "manifests.0", fmt.Sprintf("a: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:6e6657c6848a19f896cc22b6934453beca89f3bcb2aa5cb2d05db8aaffa45755\n", url)),
-					resource.TestCheckResourceAttr("ko_resolve.foo", "manifests.1", fmt.Sprintf("b: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:6e6657c6848a19f896cc22b6934453beca89f3bcb2aa5cb2d05db8aaffa45755\n", url)),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^a: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("^b: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
 				),
 			},
 		},
