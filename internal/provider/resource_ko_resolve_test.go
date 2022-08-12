@@ -60,7 +60,7 @@ metadata:
     namespace: default
 spec:
     containers:
-        - image: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:6e6657c6848a19f896cc22b6934453beca89f3bcb2aa5cb2d05db8aaffa45755
+        - image: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:.+
           name: obiwan
 `, url)),
 					)),
