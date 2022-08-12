@@ -40,7 +40,7 @@ func resourceImage() *schema.Resource {
 		DeleteContext: resourceKoBuildDelete,
 
 		Schema: map[string]*schema.Schema{
-			"importpath": {
+			ImportPathKey: {
 				Description: "import path to build",
 				Type:        schema.TypeString,
 				Required:    true,
@@ -50,29 +50,29 @@ func resourceImage() *schema.Resource {
 				},
 				ForceNew: true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			"working_dir": {
+			WorkingDirKey: {
 				Description: "working directory for the build",
 				Optional:    true,
 				Default:     ".",
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			"platforms": {
-				Description: "platforms to build",
+			PlatformsKey: {
+				Description: "Which platform to use when pulling a multi-platform base. Format: all | <os>[/<arch>[/<variant>]][,platform]*",
 				Optional:    true,
 				Type:        schema.TypeList,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			"base_image": {
+			BaseImageKey: {
 				Description: "base image to use",
 				Default:     defaultBaseImage,
 				Optional:    true,
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			"sbom": {
-				Description: "sbom type to generate",
+			SBOMKey: {
+				Description: "The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).",
 				Default:     "spdx",
 				Optional:    true,
 				Type:        schema.TypeString,
@@ -85,7 +85,7 @@ func resourceImage() *schema.Resource {
 					return nil
 				},
 			},
-			"image_ref": {
+			ImageRefKey: {
 				Description: "built image reference by digest",
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -227,7 +227,12 @@ func toStringSlice(in []interface{}) []string {
 }
 
 func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	ref, err := doBuild(ctx, fromData(d, meta.(string)))
+	providerOpts, err := NewProviderOpts(meta)
+	if err != nil {
+		return diag.Errorf("configuring provider: %v", err)
+	}
+
+	ref, err := doBuild(ctx, fromData(d, providerOpts.po.DockerRepo))
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
@@ -238,7 +243,12 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 }
 
 func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	ref, err := doBuild(ctx, fromData(d, meta.(string)))
+	providerOpts, err := NewProviderOpts(meta)
+	if err != nil {
+		return diag.Errorf("configuring provider: %v", err)
+	}
+
+	ref, err := doBuild(ctx, fromData(d, providerOpts.po.DockerRepo))
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
