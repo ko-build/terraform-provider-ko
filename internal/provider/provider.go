@@ -2,7 +2,9 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/google/ko/pkg/commands/options"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -37,7 +39,8 @@ func New(version string) func() *schema.Provider {
 				},
 			},
 			ResourcesMap: map[string]*schema.Resource{
-				"ko_image": resourceImage(),
+				"ko_image":   resourceImage(),
+				"ko_resolve": resolveConfig(),
 			},
 		}
 
@@ -47,6 +50,7 @@ func New(version string) func() *schema.Provider {
 	}
 }
 
+// configure initializes the global provider with sensible defaults (that mimic what ko does with cli/cobra defaults)
 func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	return func(ctx context.Context, s *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		repo, ok := s.Get("docker_repo").(string)
@@ -56,6 +60,31 @@ func configure(version string, p *schema.Provider) func(context.Context, *schema
 		if repo == "" {
 			return nil, diag.Errorf("docker_repo attribute or KO_DOCKER_REPO environment variable must be set")
 		}
-		return repo, nil
+
+		return &providerOpts{
+			bo: &options.BuildOptions{},
+			po: &options.PublishOptions{
+				DockerRepo: repo,
+			},
+		}, nil
 	}
+}
+
+type providerOpts struct {
+	bo *options.BuildOptions
+	po *options.PublishOptions
+}
+
+func NewProviderOpts(meta interface{}) (*providerOpts, error) {
+	opts, ok := meta.(*providerOpts)
+	if !ok {
+		return nil, fmt.Errorf("parsing provider args: %v", meta)
+	}
+
+	// This won't parse the cmd flags, but it will parse any environment vars and set some helpful defaults for us
+	if err := opts.bo.LoadConfig(); err != nil {
+		return nil, err
+	}
+
+	return opts, nil
 }
