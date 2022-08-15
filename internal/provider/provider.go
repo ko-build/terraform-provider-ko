@@ -42,6 +42,9 @@ func New(version string) func() *schema.Provider {
 				"ko_image":   resourceImage(),
 				"ko_resolve": resolveConfig(),
 			},
+			DataSourcesMap: map[string]*schema.Resource{
+				"ko_dry_resolve": dataDryResolveConfig(),
+			},
 		}
 
 		p.ConfigureContextFunc = configure(version, p)

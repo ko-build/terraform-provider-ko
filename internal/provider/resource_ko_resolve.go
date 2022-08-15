@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/google/ko/pkg/build"
 	"github.com/google/ko/pkg/commands"
@@ -97,8 +98,15 @@ type Resolver interface {
 }
 
 type Resolved struct {
-	Id        string
 	Manifests []string
+}
+
+// ID returns the hash of the parsed manifests, not the raw manifests.  This
+// ensures that "noop" changes to the resolved results (such as nil yaml docs),
+// do not result in a new ID.
+func (r *Resolved) ID() string {
+	hash := sha256.Sum256([]byte(strings.Join(r.Manifests, "\n---\n")))
+	return fmt.Sprintf("%x", hash)
 }
 
 type resolver struct {
@@ -180,10 +188,14 @@ func (r *resolver) Resolve(ctx context.Context) (*Resolved, error) {
 		return nil, err
 	}
 
-	// Split the dump of multi-doc yaml back into their individual nodes
+	return NewResolved(resolveBuf.Bytes())
+}
+
+func NewResolved(data []byte) (*Resolved, error) {
+	var manifests []string
+
 	// NOTE: Don't use a strings.Split to ensure we filter out any null docs
-	manifests := []string{}
-	decoder := yaml.NewDecoder(&resolveBuf)
+	decoder := yaml.NewDecoder(bytes.NewBuffer(data))
 	for {
 		// Use an interface instead of yaml.Node to easily strip whitespaces and nil docs
 		var d interface{}
@@ -205,10 +217,7 @@ func (r *resolver) Resolve(ctx context.Context) (*Resolved, error) {
 		manifests = append(manifests, buf.String())
 	}
 
-	sha256hash := sha256.Sum256(resolveBuf.Bytes())
-
 	return &Resolved{
-		Id:        fmt.Sprintf("%x", sha256hash),
 		Manifests: manifests,
 	}, nil
 }
@@ -224,7 +233,7 @@ func resourceKoResolveCreate(ctx context.Context, d *schema.ResourceData, meta i
 		return diag.Errorf("resolving: %v", err)
 	}
 
-	d.SetId(resolved.Id)
+	d.SetId(resolved.ID())
 	d.Set("manifests", resolved.Manifests)
 	return nil
 }
@@ -235,7 +244,7 @@ func resourceKoResolveRead(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("building resolver: %v", err)
 	}
 
-	// NOTE: Fake the publisher to prevent needing to rebuild the image on reads
+	// NOTE: Fake the publisher to prevent needing to republish the images on reads
 	r.po.Tags = []string{}
 
 	resolved, err := r.Resolve(ctx)
@@ -244,7 +253,7 @@ func resourceKoResolveRead(ctx context.Context, d *schema.ResourceData, meta int
 	}
 
 	d.Set("manifests", resolved.Manifests)
-	if resolved.Id != d.Id() {
+	if resolved.ID() != d.Id() {
 		d.SetId("")
 	}
 	return nil
