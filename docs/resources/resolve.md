@@ -47,6 +47,7 @@ output "manifests" {
 - `sbom` (String) The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).
 - `selector` (String) Selector (label query) to filter on, supports '=', '==', and '!='.(e.g. -l key1=value1,key2=value2)
 - `tags` (List of String) Which tags to use for the produced image instead of the default 'latest' tag
+- `working_dir` (String) Working directory for the build
 
 ### Read-Only
 

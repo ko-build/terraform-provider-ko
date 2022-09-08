@@ -80,6 +80,13 @@ func resolveConfig() *schema.Resource {
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				ForceNew:    true,
 			},
+			WorkingDirKey: {
+				Description: "Working directory for the build",
+				Optional:    true,
+				Default:     ".",
+				Type:        schema.TypeString,
+				ForceNew:    true,
+			},
 
 			// Computed fields
 			ManifestsKey: {
@@ -147,6 +154,10 @@ func NewResolver(d *schema.ResourceData, meta interface{}) (*resolver, error) {
 
 	if p, ok := d.Get(SelectorKey).(string); ok {
 		r.so.Selector = p
+	}
+
+	if p, ok := d.Get(WorkingDirKey).(string); ok {
+		r.bo.WorkingDirectory = p
 	}
 
 	return r, nil
