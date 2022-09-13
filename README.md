@@ -1,4 +1,4 @@
-# Terraform Provider for `ko`
+# Terraform Provider for [google/ko](https://github.com/google/ko)
 
 🚨 **This is a work in progress.** 🚨
 
