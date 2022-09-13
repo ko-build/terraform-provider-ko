@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	defaultBaseImage = "gcr.io/distroless/static:nonroot"
+	defaultBaseImage = "distroless.dev/static"
 	version          = "devel"
 )
 
