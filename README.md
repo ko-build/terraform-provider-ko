@@ -20,6 +20,7 @@ See provider examples:
 
 - [Google Cloud Run](./provider-examples/cloudrun/README.md)
 - [fly.io](./provider-examples/fly.io/README.md)
+- [Kubernetes](./provider-examples/kubernetes/README.md)
 
 The image will be rebuilt every time it's _referenced_, and will only report as having changed if the image that was built was different since the last time the image resource was read.
 
