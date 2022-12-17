@@ -23,4 +23,5 @@ provider "ko" {
 
 ### Optional
 
-- `docker_repo` (String) Container repositor to publish images to. Defaults to `KO_DOCKER_REPO` env var
+- `docker_repo` (String) [DEPRECATED: use `repo`] Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var
+- `repo` (String) Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var
