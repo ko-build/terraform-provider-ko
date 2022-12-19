@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	defaultBaseImage = "distroless.dev/static"
+	defaultBaseImage = "cgr.dev/chainguard/static"
 	version          = "devel"
 )
 
@@ -196,13 +196,14 @@ func (o *publishOpts) makePublisher() (publish.Interface, error) {
 }
 
 type buildOptions struct {
-	ip           string
-	workingDir   string
-	koDockerRepo string // KO_DOCKER_REPO env var, or the provider's configured repo if set.
-	imageRepo    string // The image's repo, if set.
-	platforms    []string
-	baseImage    string
-	sbom         string
+	ip         string
+	workingDir string
+	dockerRepo string // KO_DOCKER_REPO env var, or the provider's configured repo if set.
+	imageRepo  string // The image's repo, if set.
+	platforms  []string
+	baseImage  string
+	sbom       string
+	auth       *authn.Basic
 }
 
 func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) {
@@ -218,8 +219,11 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 				return ref, cached.(build.Result), nil
 			}
 
-			desc, err := remote.Get(ref,
-				remote.WithAuthFromKeychain(authn.DefaultKeychain))
+			kc := authn.DefaultKeychain
+			if o.auth != nil {
+				kc = authn.NewMultiKeychain(staticKeychain{o.dockerRepo, o.auth}, kc)
+			}
+			desc, err := remote.Get(ref, remote.WithAuthFromKeychain(kc))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -259,10 +263,15 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 var baseImages sync.Map // Cache of base image lookups.
 
 func doBuild(ctx context.Context, opts buildOptions) (string, error) {
-	if opts.koDockerRepo == "" && opts.imageRepo == "" {
+	if opts.dockerRepo == "" && opts.imageRepo == "" {
 		return "", errors.New("one of KO_DOCKER_REPO env var, or provider `docker_repo` or `repo`, or image resource `repo` must be set")
 	}
-	po := []publish.Option{publish.WithAuthFromKeychain(authn.DefaultKeychain)}
+
+	kc := authn.DefaultKeychain
+	if opts.auth != nil {
+		kc = authn.NewMultiKeychain(staticKeychain{opts.dockerRepo, opts.auth}, kc)
+	}
+	po := []publish.Option{publish.WithAuthFromKeychain(kc)}
 	var repo string
 	if opts.imageRepo != "" {
 		// image resource's `repo` takes precedence if set, and selects the
@@ -273,7 +282,7 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 			Bare:       true,
 		})))
 	} else {
-		repo = opts.koDockerRepo
+		repo = opts.dockerRepo
 	}
 
 	b, err := opts.makeBuilder(ctx)
@@ -296,15 +305,15 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 	return ref.String(), nil
 }
 
-func fromData(d *schema.ResourceData, providerRepo string) buildOptions {
+func fromData(d *schema.ResourceData, po *providerOpts) buildOptions {
 	return buildOptions{
-		ip:           d.Get("importpath").(string),
-		workingDir:   d.Get("working_dir").(string),
-		koDockerRepo: providerRepo,
-		imageRepo:    d.Get("repo").(string),
-		platforms:    toStringSlice(d.Get("platforms").([]interface{})),
-		baseImage:    d.Get("base_image").(string),
-		sbom:         d.Get("sbom").(string),
+		ip:         d.Get("importpath").(string),
+		workingDir: d.Get("working_dir").(string),
+		dockerRepo: po.po.DockerRepo,
+		platforms:  toStringSlice(d.Get("platforms").([]interface{})),
+		baseImage:  d.Get("base_image").(string),
+		sbom:       d.Get("sbom").(string),
+		auth:       po.auth,
 	}
 }
 
@@ -325,12 +334,12 @@ func toStringSlice(in []interface{}) []string {
 }
 
 func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	providerOpts, err := NewProviderOpts(meta)
+	po, err := NewProviderOpts(meta)
 	if err != nil {
 		return diag.Errorf("configuring provider: %v", err)
 	}
 
-	ref, err := doBuild(ctx, fromData(d, providerOpts.po.DockerRepo))
+	ref, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
@@ -341,12 +350,12 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 }
 
 func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	providerOpts, err := NewProviderOpts(meta)
+	po, err := NewProviderOpts(meta)
 	if err != nil {
 		return diag.Errorf("configuring provider: %v", err)
 	}
 
-	ref, err := doBuild(ctx, fromData(d, providerOpts.po.DockerRepo))
+	ref, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
 		return diag.Errorf("doBuild: %v", err)
 	}
@@ -363,4 +372,29 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 func resourceKoBuildDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	// TODO: If we ever want to delete the image from the registry, we can do it here.
 	return nil
+}
+
+type staticKeychain struct {
+	repo string
+	b    *authn.Basic
+}
+
+func (k staticKeychain) Resolve(r authn.Resource) (authn.Authenticator, error) {
+	ref, err := name.ParseReference(k.repo)
+	if err != nil {
+		return nil, err
+	}
+	if r.RegistryStr() == ref.Context().RegistryStr() {
+		return staticAuthenticator{k.b}, nil
+	}
+	return authn.Anonymous, nil
+}
+
+type staticAuthenticator struct{ b *authn.Basic }
+
+func (a staticAuthenticator) Authorization() (*authn.AuthConfig, error) {
+	return &authn.AuthConfig{
+		Username: a.b.Username,
+		Password: a.b.Password,
+	}, nil
 }
