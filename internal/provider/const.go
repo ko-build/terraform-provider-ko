@@ -17,20 +17,22 @@ const (
 	BaseImageKey = "base_image"
 	// TagsKey is used for common "tags" resource attribute
 	TagsKey = "tags"
-	// TagOnlyKey used for common "tag_only" resource attribute
+	// TagOnlyKey is used for common "tag_only" resource attribute
 	TagOnlyKey = "tag_only"
-	// PushKey used for common "push" resource attribute
+	// PushKey is used for common "push" resource attribute
 	PushKey = "push"
-	// FilenamesKey used for common "filenames" resource attribute
+	// FilenamesKey is used for common "filenames" resource attribute
 	FilenamesKey = "filenames"
-	// RecursiveKey used for common "recursive" resource attribute
+	// RecursiveKey is used for common "recursive" resource attribute
 	RecursiveKey = "recursive"
-	// SelectorKey used for common "selector" resource attribute
+	// SelectorKey is used for common "selector" resource attribute
 	SelectorKey = "selector"
-	// ImageRefKey used for common "image_ref" resource attribute
+	// ImageRefKey is used for common "image_ref" resource attribute
 	ImageRefKey = "image_ref"
-	// ManifestsKey used for common "manifests" resource attribute
+	// ManifestsKey is used for common "manifests" resource attribute
 	ManifestsKey = "manifests"
+	// RepoKey is used for common "repo" resource attribute
+	RepoKey = "repo"
 )
 
 func StringSlice(in []interface{}) []string {

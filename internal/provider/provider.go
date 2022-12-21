@@ -32,7 +32,13 @@ func New(version string) func() *schema.Provider {
 		p := &schema.Provider{
 			Schema: map[string]*schema.Schema{
 				"docker_repo": {
-					Description: "Container repositor to publish images to. Defaults to `KO_DOCKER_REPO` env var",
+					Description: "[DEPRECATED: use `repo`] Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var",
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("KO_DOCKER_REPO", ""),
+					Type:        schema.TypeString,
+				},
+				"repo": {
+					Description: "Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var",
 					Optional:    true,
 					DefaultFunc: schema.EnvDefaultFunc("KO_DOCKER_REPO", ""),
 					Type:        schema.TypeString,
@@ -53,18 +59,21 @@ func New(version string) func() *schema.Provider {
 // configure initializes the global provider with sensible defaults (that mimic what ko does with cli/cobra defaults)
 func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	return func(ctx context.Context, s *schema.ResourceData) (interface{}, diag.Diagnostics) {
-		repo, ok := s.Get("docker_repo").(string)
+		koDockerRepo, ok := s.Get("repo").(string)
 		if !ok {
-			return nil, diag.Errorf("expected docker_repo to be string")
+			return nil, diag.Errorf("expected repo to be string")
 		}
-		if repo == "" {
-			return nil, diag.Errorf("docker_repo attribute or KO_DOCKER_REPO environment variable must be set")
+		if koDockerRepo == "" {
+			koDockerRepo, ok = s.Get("docker_repo").(string)
+			if !ok {
+				return nil, diag.Errorf("expected docker_repo to be string")
+			}
 		}
 
 		return &providerOpts{
 			bo: &options.BuildOptions{},
 			po: &options.PublishOptions{
-				DockerRepo: repo,
+				DockerRepo: koDockerRepo,
 			},
 		}, nil
 	}

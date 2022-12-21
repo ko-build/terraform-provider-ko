@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -85,6 +86,13 @@ func resourceImage() *schema.Resource {
 					return nil
 				},
 			},
+			RepoKey: {
+				Description: "Container repository to publish images to. If set, this overrides the provider's docker_repo, and the image name will be exactly the specified `repo`, without the importpath appended.",
+				Default:     "",
+				Optional:    true,
+				Type:        schema.TypeString,
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
 			ImageRefKey: {
 				Description: "built image reference by digest",
 				Type:        schema.TypeString,
@@ -116,12 +124,13 @@ func (o *publishOpts) makePublisher() (publish.Interface, error) {
 }
 
 type buildOptions struct {
-	ip         string
-	workingDir string
-	dockerRepo string
-	platforms  []string
-	baseImage  string
-	sbom       string
+	ip           string
+	workingDir   string
+	koDockerRepo string // KO_DOCKER_REPO env var, or the provider's configured repo if set.
+	imageRepo    string // The image's repo, if set.
+	platforms    []string
+	baseImage    string
+	sbom         string
 }
 
 func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) {
@@ -178,6 +187,23 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 var baseImages sync.Map // Cache of base image lookups.
 
 func doBuild(ctx context.Context, opts buildOptions) (string, error) {
+	if opts.koDockerRepo == "" && opts.imageRepo == "" {
+		return "", errors.New("one of KO_DOCKER_REPO env var, or provider `docker_repo` or `repo`, or image resource `repo` must be set")
+	}
+	po := []publish.Option{publish.WithAuthFromKeychain(authn.DefaultKeychain)}
+	var repo string
+	if opts.imageRepo != "" {
+		// image resource's `repo` takes precedence if set, and selects the
+		// `--bare` namer so the image is named exactly `repo`.
+		repo = opts.imageRepo
+		po = append(po, publish.WithNamer(options.MakeNamer(&options.PublishOptions{
+			DockerRepo: opts.imageRepo,
+			Bare:       true,
+		})))
+	} else {
+		repo = opts.koDockerRepo
+	}
+
 	b, err := opts.makeBuilder(ctx)
 	if err != nil {
 		return "", fmt.Errorf("NewGo: %v", err)
@@ -187,8 +213,7 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 		return "", fmt.Errorf("build: %v", err)
 	}
 
-	p, err := publish.NewDefault(opts.dockerRepo,
-		publish.WithAuthFromKeychain(authn.DefaultKeychain))
+	p, err := publish.NewDefault(repo, po...)
 	if err != nil {
 		return "", fmt.Errorf("NewDefault: %v", err)
 	}
@@ -199,14 +224,15 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 	return ref.String(), nil
 }
 
-func fromData(d *schema.ResourceData, repo string) buildOptions {
+func fromData(d *schema.ResourceData, providerRepo string) buildOptions {
 	return buildOptions{
-		ip:         d.Get("importpath").(string),
-		workingDir: d.Get("working_dir").(string),
-		dockerRepo: repo,
-		platforms:  toStringSlice(d.Get("platforms").([]interface{})),
-		baseImage:  d.Get("base_image").(string),
-		sbom:       d.Get("sbom").(string),
+		ip:           d.Get("importpath").(string),
+		workingDir:   d.Get("working_dir").(string),
+		koDockerRepo: providerRepo,
+		imageRepo:    d.Get("repo").(string),
+		platforms:    toStringSlice(d.Get("platforms").([]interface{})),
+		baseImage:    d.Get("base_image").(string),
+		sbom:         d.Get("sbom").(string),
 	}
 }
 
