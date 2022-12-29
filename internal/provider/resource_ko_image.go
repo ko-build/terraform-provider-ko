@@ -40,6 +40,35 @@ func resourceImage() *schema.Resource {
 		ReadContext:   resourceKoBuildRead,
 		DeleteContext: resourceKoBuildDelete,
 
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Version: 0,
+				Type:    resourceImageV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: func(_ context.Context, rawState map[string]interface{}, _ interface{}) (map[string]interface{}, error) {
+					if rawState == nil {
+						return rawState, nil
+					}
+
+					// Set defaults for new sbom attribute
+					// NB: this is important to make read after update from
+					// schema 0 to 1 work correctly. We build on read and we
+					// need sbom format to be defined to build
+					rawState[SBOMKey] = "spdx"
+
+					// Previously "platforms" was just a string for one
+					// platform so we take that single platform and put in a
+					// slice to migrate
+					platforms, ok := rawState[PlatformsKey].(string)
+					if !ok {
+						return rawState, nil
+					}
+					rawState[PlatformsKey] = []string{platforms}
+					return rawState, nil
+				},
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			ImportPathKey: {
 				Description: "import path to build",
@@ -78,7 +107,7 @@ func resourceImage() *schema.Resource {
 				Optional:    true,
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
-				ValidateDiagFunc: func(data interface{}, path cty.Path) diag.Diagnostics {
+				ValidateDiagFunc: func(data interface{}, _ cty.Path) diag.Diagnostics {
 					v := data.(string)
 					if _, found := validTypes[v]; !found {
 						return diag.Errorf("Invalid sbom type: %q", v)
@@ -94,6 +123,49 @@ func resourceImage() *schema.Resource {
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
 			ImageRefKey: {
+				Description: "built image reference by digest",
+				Type:        schema.TypeString,
+				Computed:    true,
+			},
+		},
+	}
+}
+
+func resourceImageV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"importpath": {
+				Description: "import path to build",
+				Type:        schema.TypeString,
+				Required:    true,
+				ValidateDiagFunc: func(data interface{}, path cty.Path) diag.Diagnostics {
+					// TODO: validate stuff here.
+					return nil
+				},
+				ForceNew: true, // Any time this changes, don't try to update in-place, just create it.
+			},
+			"working_dir": {
+				Description: "working directory for the build",
+				Optional:    true,
+				Default:     ".",
+				Type:        schema.TypeString,
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
+			"platforms": {
+				Description: "platforms to build",
+				Default:     "linux/amd64",
+				Optional:    true,
+				Type:        schema.TypeString, // TODO: type list of strings?
+				ForceNew:    true,              // Any time this changes, don't try to update in-place, just create it.
+			},
+			"base_image": {
+				Description: "base image to use",
+				Default:     defaultBaseImage,
+				Optional:    true,
+				Type:        schema.TypeString,
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
+			"image_ref": {
 				Description: "built image reference by digest",
 				Type:        schema.TypeString,
 				Computed:    true,
