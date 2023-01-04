@@ -8,7 +8,7 @@ terraform {
     }
     ko = {
       source  = "chainguard-dev/ko"
-      version = "0.0.2"
+      version = "0.0.4"
     }
   }
 }
