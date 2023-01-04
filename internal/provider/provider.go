@@ -3,7 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/ko/pkg/commands/options"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -43,6 +45,12 @@ func New(version string) func() *schema.Provider {
 					DefaultFunc: schema.EnvDefaultFunc("KO_DOCKER_REPO", ""),
 					Type:        schema.TypeString,
 				},
+				"basic_auth": {
+					Description: "Basic auth to use to authorize requests",
+					Optional:    true,
+					Default:     "",
+					Type:        schema.TypeString,
+				},
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"ko_image":   resourceImage(),
@@ -70,18 +78,34 @@ func configure(version string, p *schema.Provider) func(context.Context, *schema
 			}
 		}
 
+		var auth *authn.Basic
+		if a, ok := s.Get("basic_auth").(string); !ok {
+			return nil, diag.Errorf("expected basic_auth to be string")
+		} else if a != "" {
+			user, pass, ok := strings.Cut(a, ":")
+			if !ok {
+				return nil, diag.Errorf(`basic_auth did not contain ":"`)
+			}
+			auth = &authn.Basic{
+				Username: user,
+				Password: pass,
+			}
+		}
+
 		return &providerOpts{
 			bo: &options.BuildOptions{},
 			po: &options.PublishOptions{
 				DockerRepo: koDockerRepo,
 			},
+			auth: auth,
 		}, nil
 	}
 }
 
 type providerOpts struct {
-	bo *options.BuildOptions
-	po *options.PublishOptions
+	bo   *options.BuildOptions
+	po   *options.PublishOptions
+	auth *authn.Basic
 }
 
 func NewProviderOpts(meta interface{}) (*providerOpts, error) {
