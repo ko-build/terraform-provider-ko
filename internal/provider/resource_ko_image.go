@@ -4,11 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"sync"
 
+	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
+	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/ko/pkg/build"
 	"github.com/google/ko/pkg/commands"
@@ -206,6 +211,18 @@ type buildOptions struct {
 	auth       *authn.Basic
 }
 
+var (
+	amazonKeychain authn.Keychain = authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)))
+	azureKeychain  authn.Keychain = authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
+	keychain                      = authn.NewMultiKeychain(
+		authn.DefaultKeychain,
+		amazonKeychain,
+		google.Keychain,
+		github.Keychain,
+		azureKeychain,
+	)
+)
+
 func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) {
 	bo := []build.Option{
 		build.WithPlatforms(o.platforms...),
@@ -219,7 +236,7 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 				return ref, cached.(build.Result), nil
 			}
 
-			kc := authn.DefaultKeychain
+			kc := keychain
 			if o.auth != nil {
 				kc = authn.NewMultiKeychain(staticKeychain{o.dockerRepo, o.auth}, kc)
 			}
@@ -267,7 +284,7 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 		return "", errors.New("one of KO_DOCKER_REPO env var, or provider `docker_repo` or `repo`, or image resource `repo` must be set")
 	}
 
-	kc := authn.DefaultKeychain
+	kc := keychain
 	if opts.auth != nil {
 		kc = authn.NewMultiKeychain(staticKeychain{opts.dockerRepo, opts.auth}, kc)
 	}
