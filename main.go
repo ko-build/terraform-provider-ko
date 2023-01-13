@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/chainguard-dev/terraform-provider-ko/internal/provider"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/ko-build/terraform-provider-ko/internal/provider"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
@@ -34,7 +34,7 @@ func main() {
 
 	opts := &plugin.ServeOpts{
 		Debug:        debugMode,
-		ProviderAddr: "registry.terraform.io/chainguard-dev/ko",
+		ProviderAddr: "registry.terraform.io/ko-build/ko",
 		ProviderFunc: provider.New(version),
 	}
 

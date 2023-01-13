@@ -1,4 +1,4 @@
-module github.com/chainguard-dev/terraform-provider-ko
+module github.com/ko-build/terraform-provider-ko
 
 go 1.18
 

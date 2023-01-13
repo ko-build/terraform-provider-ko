@@ -2,11 +2,9 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "4.46.0"
     }
     ko = {
-      source  = "chainguard-dev/ko"
-      version = "0.0.2"
+      source  = "ko-build/ko"
     }
   }
 }
@@ -29,7 +27,7 @@ variable "service" {
 provider "ko" {}
 
 resource "ko_image" "example" {
-  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
+  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 }
 
 resource "google_cloud_run_service" "default" {

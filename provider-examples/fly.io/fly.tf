@@ -4,11 +4,9 @@ terraform {
   required_providers {
     fly = {
       source = "fly-apps/fly"
-      version = "0.0.16"
     }
     ko = {
-      source  = "chainguard-dev/ko"
-      version = "0.0.4"
+      source  = "ko-build/ko"
     }
   }
 }
@@ -20,7 +18,7 @@ variable "app" {
 provider "ko" {}
 
 resource "ko_image" "example" {
-  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
+  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 }
 
 resource "fly_app" "example" {
