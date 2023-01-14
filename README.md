@@ -2,7 +2,7 @@
 
 🚨 **This is a work in progress.** 🚨
 
-https://registry.terraform.io/providers/chainguard-dev/ko
+https://registry.terraform.io/providers/ko-build/ko
 
 ## Usage
 
@@ -12,7 +12,7 @@ This provides a `ko_image` resource that will build the referenced Go applicatio
 provider "ko" {}
 
 resource "ko_image" "example" {
-  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
+  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 }
 ```
 

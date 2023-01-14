@@ -18,7 +18,7 @@ This relies on https://www.terraform.io/cli/config/config-file#implied-local-mir
 
 ```
 rm .terraform.lock.hcl && \
-    go build -o ~/.terraform.d/plugins/registry.terraform.io/chainguard-dev/ko/0.0.100/darwin_arm64/terraform-provider-ko && \
+    go build -o ~/.terraform.d/plugins/registry.terraform.io/ko-build/ko/0.0.100/darwin_arm64/terraform-provider-ko && \
     terraform init && \
     terraform apply
 ```

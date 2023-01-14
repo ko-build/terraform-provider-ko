@@ -2,11 +2,9 @@ terraform {
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "2.16.1"
     }
     ko = {
-      source  = "chainguard-dev/ko"
-      version = "0.0.2"
+      source  = "ko-build/ko"
     }
   }
 }
@@ -19,7 +17,7 @@ provider "kubernetes" {
 provider "ko" {}
 
 resource "ko_image" "example" {
-  importpath = "github.com/chainguard-dev/terraform-provider-ko/cmd/test"
+  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 }
 
 resource "kubernetes_namespace" "ns" {
