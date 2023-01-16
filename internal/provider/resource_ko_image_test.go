@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func TestAccResourceKoImage(t *testing.T) {
@@ -127,4 +128,65 @@ func TestAccResourceKoImage(t *testing.T) {
 			}},
 		})
 	}
+}
+
+func TestAccResourceKoImage_ImageRepo(t *testing.T) {
+	// Setup a local registry and have tests push to that.
+	srv := httptest.NewServer(registry.New())
+	defer srv.Close()
+	parts := strings.Split(srv.URL, ":")
+	url := fmt.Sprintf("localhost:%s/test", parts[len(parts)-1])
+	t.Setenv("KO_DOCKER_REPO", url)
+
+	// Test that the repo attribute of the ko_image resource is respected, and
+	// the returned image_ref's repo is exactly the configured repo, without
+	// the importpath appended.
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{{
+			Config: fmt.Sprintf(`
+		resource "ko_image" "foo" {
+			importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
+			repo = "%s/configured-in-resource"
+		}
+		`, url),
+			Check: resource.ComposeTestCheckFunc(
+				resource.TestMatchResourceAttr("ko_image.foo", "image_ref", regexp.MustCompile("^"+url+"/configured-in-resource@sha256:")),
+			),
+		}},
+	})
+}
+
+func TestAccResourceKoImage_ProviderRepo(t *testing.T) {
+	// Setup a local registry and have tests push to that.
+	srv := httptest.NewServer(registry.New())
+	defer srv.Close()
+	parts := strings.Split(srv.URL, ":")
+	url := fmt.Sprintf("localhost:%s/test", parts[len(parts)-1])
+	t.Setenv("KO_DOCKER_REPO", url)
+
+	var providerConfigured = map[string]func() (*schema.Provider, error){
+		"ko": func() (*schema.Provider, error) {
+			p := New("dev")()
+			p.Schema["repo"].Default = url + "/configured-in-provider"
+			return p, nil
+		},
+	}
+
+	// Test that the repo attribute of the provider is respected, and overrides
+	// the KO_DOCKER_REPO.
+	// When configured in the provider, the importpath is appended to the image ref.
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerConfigured,
+		Steps: []resource.TestStep{{
+			Config: `
+		resource "ko_image" "foo" {
+			importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
+		}
+		`,
+			Check: resource.ComposeTestCheckFunc(
+				resource.TestMatchResourceAttr("ko_image.foo", "image_ref", regexp.MustCompile("^"+url+"/configured-in-provider/github.com/ko-build/terraform-provider-ko/cmd/test@sha256:")),
+			),
+		}},
+	})
 }
