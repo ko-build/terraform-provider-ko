@@ -1,13 +1,12 @@
-# Example: Deploying to Kubernetes
+# Example: Deploying to Google Cloud Run
 
-This example uses the [`kubernetes`](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs) provider and its [`kubernetes_deployment`](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/deployment) resource.
+This example uses the [`google`](https://registry.terraform.io/providers/hashicorp/google/latest/docs) provider and its [`cloud_run_service`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/cloud_run_service) resource.
 
-To start, set up a Kubernetes cluster.
+To start, `terraform init` to install the necessary providers.
 
-Then `terraform init` to install the necessary providers.
+Then `terraform apply` to build and deploy the example app to Cloud Run.
+You will be prompted for your GCP project.
 
-Then `terraform apply` to build and deploy the example app to the current Kubernetes context.
-
-When complete, your deployment will start in the `tf-ko-example` namespace.
+When complete, your service will be named `tf-ko-example`.
 
 To clean up created resources, `terraform destroy`.
