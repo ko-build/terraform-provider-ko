@@ -28,7 +28,7 @@ resource "aws_ecr_repository" "foo" {
   }
 }
 
-resource "ko_image" "image" {
+resource "ko_build" "image" {
   repo        = aws_ecr_repository.foo.repository_url
   base_image  = "cgr.dev/chainguard/static:latest-glibc"
   importpath  = "github.com/ko-build/terraform-provider-ko/cmd/test"
@@ -84,7 +84,7 @@ resource "aws_apprunner_service" "example" {
     }
 
     image_repository {
-      image_identifier      = ko_image.image.image_ref
+      image_identifier      = ko_build.image.image_ref
       image_repository_type = "ECR"
     }
     auto_deployments_enabled = false

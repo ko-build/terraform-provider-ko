@@ -28,7 +28,7 @@ resource "aws_ecr_repository" "foo" {
   }
 }
 
-resource "ko_image" "image" {
+resource "ko_build" "image" {
   repo        = aws_ecr_repository.foo.repository_url
   base_image  = "public.ecr.aws/lambda/provided:al2"
   importpath  = "github.com/ko-build/terraform-provider-ko/cmd/test-lambda"
@@ -59,7 +59,7 @@ resource "aws_lambda_function" "example" {
   function_name = "terraform-provider-ko-sample"
   role          = aws_iam_role.lambda_access_role.arn
   package_type  = "Image"
-  image_uri     = ko_image.image.image_ref
+  image_uri     = ko_build.image.image_ref
 
   tags = {
     Name = "example-lambda-function"
