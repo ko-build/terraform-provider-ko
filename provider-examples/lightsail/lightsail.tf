@@ -28,7 +28,7 @@ resource "aws_ecr_repository" "foo" {
   }
 }
 
-resource "ko_image" "image" {
+resource "ko_build" "image" {
   repo        = aws_ecr_repository.foo.repository_url
   base_image  = "cgr.dev/chainguard/static:latest-glibc"
   importpath  = "github.com/ko-build/terraform-provider-ko/cmd/test"
@@ -78,7 +78,7 @@ resource "aws_ecr_repository_policy" "lightsail_ecr_download" {
 resource "aws_lightsail_container_service_deployment_version" "example" {
   container {
     container_name = "hello-world"
-    image          = ko_image.image.image_ref
+    image          = ko_build.image.image_ref
 
     ports = {
       8080 = "HTTP"

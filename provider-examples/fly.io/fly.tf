@@ -17,7 +17,7 @@ variable "app" {
 
 provider "ko" {}
 
-resource "ko_image" "example" {
+resource "ko_build" "example" {
   importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 }
 
@@ -41,7 +41,7 @@ resource "fly_machine" "machine" {
   app    = var.app
   region = each.value
   name   = "${fly_app.example.name}-${each.value}"
-  image  = ko_image.example.image_ref
+  image  = ko_build.example.image_ref
   services = [
     {
       ports = [

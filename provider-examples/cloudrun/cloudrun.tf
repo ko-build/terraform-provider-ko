@@ -26,7 +26,7 @@ variable "service" {
 
 provider "ko" {}
 
-resource "ko_image" "example" {
+resource "ko_build" "example" {
   importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 }
 
@@ -37,7 +37,7 @@ resource "google_cloud_run_service" "default" {
   template {
     spec {
       containers {
-        image = ko_image.example.image_ref
+        image = ko_build.example.image_ref
       }
     }
   }

@@ -6,12 +6,12 @@ https://registry.terraform.io/providers/ko-build/ko
 
 ## Usage
 
-This provides a `ko_image` resource that will build the referenced Go application specified by the `importpath`, push an image to the configured container repository, and make the image's reference available to other Terraform resources.
+This provides a `ko_build` resource that will build the referenced Go application specified by the `importpath`, push an image to the configured container repository, and make the image's reference available to other Terraform resources.
 
 ```
 provider "ko" {}
 
-resource "ko_image" "example" {
+resource "ko_build" "example" {
   importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 }
 ```

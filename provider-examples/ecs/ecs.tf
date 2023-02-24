@@ -32,7 +32,7 @@ resource "aws_ecr_repository" "foo" {
   }
 }
 
-resource "ko_image" "image" {
+resource "ko_build" "image" {
   repo        = aws_ecr_repository.foo.repository_url
   base_image  = "cgr.dev/chainguard/static:latest-glibc"
   importpath  = "github.com/ko-build/terraform-provider-ko/cmd/test"
@@ -101,7 +101,7 @@ resource "aws_ecs_task_definition" "foo" {
   container_definitions    = jsonencode([
     {
       "name": "foo",
-      "image": ko_image.image.image_ref,
+      "image": ko_build.image.image_ref,
       "cpu": 1024,
       "memory": 2048,
       "essential": true

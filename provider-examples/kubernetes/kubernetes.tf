@@ -16,7 +16,7 @@ provider "kubernetes" {
 
 provider "ko" {}
 
-resource "ko_image" "example" {
+resource "ko_build" "example" {
   importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 }
 
@@ -49,7 +49,7 @@ resource "kubernetes_deployment" "deploy" {
 
       spec {
         container {
-          image = ko_image.example.image_ref
+          image = ko_build.example.image_ref
           name  = "app"
         }
       }
