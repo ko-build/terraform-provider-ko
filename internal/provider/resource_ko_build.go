@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"sync"
 
@@ -109,11 +109,11 @@ func resourceBuild() *schema.Resource {
 	}
 }
 
-type buildOpts struct {
+type buildOpts struct { //nolint: unused
 	*options.BuildOptions
 }
 
-func (o *buildOpts) makeBuilder(ctx context.Context) (*build.Caching, error) {
+func (o *buildOpts) makeBuilder(ctx context.Context) (*build.Caching, error) { //nolint: unused
 	builder, err := commands.NewBuilder(ctx, o.BuildOptions)
 	if err != nil {
 		return nil, err
@@ -122,11 +122,11 @@ func (o *buildOpts) makeBuilder(ctx context.Context) (*build.Caching, error) {
 	return build.NewCaching(builder)
 }
 
-type publishOpts struct {
+type publishOpts struct { //nolint: unused
 	*options.PublishOptions
 }
 
-func (o *publishOpts) makePublisher() (publish.Interface, error) {
+func (o *publishOpts) makePublisher() (publish.Interface, error) { //nolint: unused
 	return commands.NewPublisher(o.PublishOptions)
 }
 
@@ -142,7 +142,7 @@ type buildOptions struct {
 }
 
 var (
-	amazonKeychain authn.Keychain = authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)))
+	amazonKeychain authn.Keychain = authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard)))
 	azureKeychain  authn.Keychain = authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
 	keychain                      = authn.NewMultiKeychain(
 		authn.DefaultKeychain,
@@ -202,7 +202,7 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 
 	b, err := build.NewGo(ctx, o.workingDir, bo...)
 	if err != nil {
-		return nil, fmt.Errorf("NewGo: %v", err)
+		return nil, fmt.Errorf("NewGo: %w", err)
 	}
 	return build.NewCaching(b)
 }
@@ -216,11 +216,11 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 
 	b, err := opts.makeBuilder(ctx)
 	if err != nil {
-		return "", fmt.Errorf("NewGo: %v", err)
+		return "", fmt.Errorf("NewGo: %w", err)
 	}
 	r, err := b.Build(ctx, opts.ip)
 	if err != nil {
-		return "", fmt.Errorf("build: %v", err)
+		return "", fmt.Errorf("build: %w", err)
 	}
 
 	kc := keychain
@@ -237,16 +237,16 @@ func doBuild(ctx context.Context, opts buildOptions) (string, error) {
 
 	p, err := publish.NewDefault(opts.imageRepo, po...)
 	if err != nil {
-		return "", fmt.Errorf("NewDefault: %v", err)
+		return "", fmt.Errorf("NewDefault: %w", err)
 	}
 	ref, err := p.Publish(ctx, r, opts.ip)
 	if err != nil {
-		return "", fmt.Errorf("publish: %v", err)
+		return "", fmt.Errorf("publish: %w", err)
 	}
 	return ref.String(), nil
 }
 
-func fromData(d *schema.ResourceData, po *providerOpts) buildOptions {
+func fromData(d *schema.ResourceData, po *Opts) buildOptions {
 	// Use the repo configured in the ko_build resource, if set.
 	// Otherwise, fallback to the provider-configured repo.
 	// If the ko_build resource configured the repo, use bare image naming.
@@ -279,7 +279,7 @@ func toStringSlice(in []interface{}) []string {
 		if s, ok := ii.(string); ok {
 			out[i] = s
 		} else {
-			panic(fmt.Errorf("Expected string, got %T", ii))
+			panic(fmt.Errorf("expected string, got %T", ii))
 		}
 	}
 	return out
@@ -296,7 +296,7 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("doBuild: %v", err)
 	}
 
-	d.Set("image_ref", ref)
+	_ = d.Set("image_ref", ref)
 	d.SetId(ref)
 	return nil
 }
@@ -312,7 +312,7 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.Errorf("doBuild: %v", err)
 	}
 
-	d.Set("image_ref", ref)
+	_ = d.Set("image_ref", ref)
 	if ref != d.Id() {
 		d.SetId("")
 	} else {
@@ -321,7 +321,7 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 	return nil
 }
 
-func resourceKoBuildDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceKoBuildDelete(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics {
 	// TODO: If we ever want to delete the image from the registry, we can do it here.
 	return nil
 }

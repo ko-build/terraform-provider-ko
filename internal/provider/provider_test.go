@@ -7,7 +7,7 @@ import (
 )
 
 var providerFactories = map[string]func() (*schema.Provider, error){
-	"ko": func() (*schema.Provider, error) {
+	"ko": func() (*schema.Provider, error) { //nolint: unparam
 		return New("dev")(), nil
 	},
 }

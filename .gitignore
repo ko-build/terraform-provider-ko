@@ -34,4 +34,4 @@ website/vendor
 *.winfile eol=crlf
 
 terraform-provider-ko
-.terraform.lock.hcl 
+.terraform.lock.hcl

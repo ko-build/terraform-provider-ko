@@ -166,7 +166,7 @@ func TestAccResourceKoBuild_ProviderRepo(t *testing.T) {
 	t.Setenv("KO_DOCKER_REPO", url)
 
 	var providerConfigured = map[string]func() (*schema.Provider, error){
-		"ko": func() (*schema.Provider, error) {
+		"ko": func() (*schema.Provider, error) { //nolint: unparam
 			p := New("dev")()
 			p.Schema["repo"].Default = url + "/configured-in-provider"
 			return p, nil
