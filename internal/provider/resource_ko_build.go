@@ -16,7 +16,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/ko/pkg/build"
-	"github.com/google/ko/pkg/commands"
 	"github.com/google/ko/pkg/commands/options"
 	"github.com/google/ko/pkg/publish"
 	"github.com/hashicorp/go-cty/cty"
@@ -107,27 +106,6 @@ func resourceBuild() *schema.Resource {
 			},
 		},
 	}
-}
-
-type buildOpts struct { //nolint: unused
-	*options.BuildOptions
-}
-
-func (o *buildOpts) makeBuilder(ctx context.Context) (*build.Caching, error) { //nolint: unused
-	builder, err := commands.NewBuilder(ctx, o.BuildOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	return build.NewCaching(builder)
-}
-
-type publishOpts struct { //nolint: unused
-	*options.PublishOptions
-}
-
-func (o *publishOpts) makePublisher() (publish.Interface, error) { //nolint: unused
-	return commands.NewPublisher(o.PublishOptions)
 }
 
 type buildOptions struct {
