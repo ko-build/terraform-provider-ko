@@ -27,7 +27,7 @@ func resolveConfig() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			FilenamesKey: {
-				Description: "Filenames, directorys, or URLs to files to use to create the resource",
+				Description: "Filenames, directories, or URLs to files to use to create the resource",
 				Required:    true,
 				Type:        schema.TypeList,
 				Elem:        &schema.Schema{Type: schema.TypeString},
@@ -99,29 +99,29 @@ func resolveConfig() *schema.Resource {
 	}
 }
 
-type Resolver interface {
+type ResolverInt interface {
 	Resolve(ctx context.Context) (*Resolved, error)
 }
 
 type Resolved struct {
-	Id        string
+	ID        string
 	Manifests []string
 }
 
-type resolver struct {
+type Resolver struct {
 	bo *options.BuildOptions
 	po *options.PublishOptions
 	fo *options.FilenameOptions
 	so *options.SelectorOptions
 }
 
-func NewResolver(d *schema.ResourceData, meta interface{}) (*resolver, error) {
+func NewResolver(d *schema.ResourceData, meta interface{}) (*Resolver, error) {
 	opts, err := NewProviderOpts(meta)
 	if err != nil {
 		return nil, err
 	}
 
-	r := &resolver{
+	r := &Resolver{
 		bo: opts.bo,
 		po: opts.po,
 		fo: &options.FilenameOptions{},
@@ -163,7 +163,7 @@ func NewResolver(d *schema.ResourceData, meta interface{}) (*resolver, error) {
 	return r, nil
 }
 
-func (r *resolver) Resolve(ctx context.Context) (*Resolved, error) {
+func (r *Resolver) Resolve(ctx context.Context) (*Resolved, error) {
 	builder, err := commands.NewBuilder(ctx, r.bo)
 	if err != nil {
 		return nil, err
@@ -219,7 +219,7 @@ func (r *resolver) Resolve(ctx context.Context) (*Resolved, error) {
 	sha256hash := sha256.Sum256(resolveBuf.Bytes())
 
 	return &Resolved{
-		Id:        fmt.Sprintf("%x", sha256hash),
+		ID:        fmt.Sprintf("%x", sha256hash),
 		Manifests: manifests,
 	}, nil
 }
@@ -235,8 +235,8 @@ func resourceKoResolveCreate(ctx context.Context, d *schema.ResourceData, meta i
 		return diag.Errorf("resolving: %v", err)
 	}
 
-	d.SetId(resolved.Id)
-	d.Set("manifests", resolved.Manifests)
+	d.SetId(resolved.ID)
+	_ = d.Set("manifests", resolved.Manifests)
 	return nil
 }
 
@@ -254,14 +254,14 @@ func resourceKoResolveRead(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("resolving: %v", err)
 	}
 
-	d.Set("manifests", resolved.Manifests)
-	if resolved.Id != d.Id() {
+	_ = d.Set("manifests", resolved.Manifests)
+	if resolved.ID != d.Id() {
 		d.SetId("")
 	}
 	return nil
 }
 
-func resourceKoResolveDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceKoResolveDelete(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics { //nolint: unused
 	return nil
 }
 

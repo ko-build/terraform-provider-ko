@@ -11,8 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-var changed = false
-
 func init() {
 	// Set descriptions to support markdown syntax, this will be used in document generation
 	// and the language server.
@@ -66,7 +64,8 @@ func New(version string) func() *schema.Provider {
 }
 
 // configure initializes the global provider with sensible defaults (that mimic what ko does with cli/cobra defaults)
-func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
+// TODO: review input parameters
+func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) { //nolint: revive
 	return func(ctx context.Context, s *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		koDockerRepo, ok := s.Get("repo").(string)
 		if !ok {
@@ -93,7 +92,7 @@ func configure(version string, p *schema.Provider) func(context.Context, *schema
 			}
 		}
 
-		return &providerOpts{
+		return &Opts{
 			bo: &options.BuildOptions{},
 			po: &options.PublishOptions{
 				DockerRepo: koDockerRepo,
@@ -103,14 +102,14 @@ func configure(version string, p *schema.Provider) func(context.Context, *schema
 	}
 }
 
-type providerOpts struct {
+type Opts struct {
 	bo   *options.BuildOptions
 	po   *options.PublishOptions
 	auth *authn.Basic
 }
 
-func NewProviderOpts(meta interface{}) (*providerOpts, error) {
-	opts, ok := meta.(*providerOpts)
+func NewProviderOpts(meta interface{}) (*Opts, error) {
+	opts, ok := meta.(*Opts)
 	if !ok {
 		return nil, fmt.Errorf("parsing provider args: %v", meta)
 	}

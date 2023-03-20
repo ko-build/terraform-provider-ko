@@ -36,7 +36,7 @@ output "manifests" {
 
 ### Required
 
-- `filenames` (List of String) Filenames, directorys, or URLs to files to use to create the resource
+- `filenames` (List of String) Filenames, directories, or URLs to files to use to create the resource
 
 ### Optional
 

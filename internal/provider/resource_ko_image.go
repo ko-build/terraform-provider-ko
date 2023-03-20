@@ -158,16 +158,16 @@ func resourceImageV0() *schema.Resource {
 	}
 }
 
-func resourceKoImageCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	d.Set("image_ref", "")
+func resourceKoImageCreate(_ context.Context, d *schema.ResourceData, _ interface{}) diag.Diagnostics {
+	_ = d.Set("image_ref", "")
 	d.SetId("id")
 	return nil
 }
 
-func resourceKoImageRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceKoImageRead(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics {
 	return nil
 }
 
-func resourceKoImageDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceKoImageDelete(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics {
 	return nil
 }

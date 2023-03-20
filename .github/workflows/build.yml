@@ -1,30 +1,22 @@
-name: release
+name: Build
 on:
+  pull_request:
+    branches: ['main']
   push:
-    tags:
-      - 'v*'
+    branches: ['main']
+
 jobs:
-  goreleaser:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-      - run: git fetch --prune --unshallow
       - uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
           go-version: '1.20'
           check-latest: true
-          cache: true
-
-      - id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@111c56156bcc6918c056dbef52164cfa583dc549 # v5.2.0
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
-
       - uses: goreleaser/goreleaser-action@f82d6c1c344bcacabba2c841718984797f664a6b # v4.2.0
         with:
           version: latest
-          args: release --clean
+          args: release --clean --snapshot --skip-sign
         env:
-          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
