@@ -3,7 +3,7 @@ module github.com/ko-build/terraform-provider-ko
 go 1.20
 
 require (
-	github.com/aws/aws-lambda-go v1.38.0
+	github.com/aws/aws-lambda-go v1.39.1
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220517224237-e6f29200ae04
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08
 	github.com/google/go-containerregistry v0.13.1-0.20230310164735-e94d40893b2d
