@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-lambda-go v1.39.1
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220517224237-e6f29200ae04
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08
-	github.com/google/go-containerregistry v0.13.1-0.20230310164735-e94d40893b2d
+	github.com/google/go-containerregistry v0.14.0
 	github.com/google/ko v0.13.0
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
 	github.com/hashicorp/terraform-plugin-docs v0.14.1
