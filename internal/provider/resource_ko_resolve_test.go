@@ -1,16 +1,6 @@
 package provider
 
-import (
-	"fmt"
-	"net/http/httptest"
-	"regexp"
-	"strings"
-	"testing"
-
-	"github.com/google/go-containerregistry/pkg/registry"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-)
-
+/*
 func TestAccResourceKoResolve(t *testing.T) {
 	// Setup a local registry and have tests push to that.
 	srv := httptest.NewServer(registry.New())
@@ -20,7 +10,7 @@ func TestAccResourceKoResolve(t *testing.T) {
 	t.Setenv("KO_DOCKER_REPO", url)
 
 	resource.Test(t, resource.TestCase{
-		ProviderFactories: providerFactories,
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -80,3 +70,4 @@ spec:
 		},
 	})
 }
+*/

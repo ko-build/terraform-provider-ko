@@ -2,122 +2,106 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/ko/pkg/commands/options"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
-func init() {
-	// Set descriptions to support markdown syntax, this will be used in document generation
-	// and the language server.
-	schema.DescriptionKind = schema.StringMarkdown
+var _ provider.Provider = &Provider{}
 
-	// Customize the content of descriptions when output. For example you can add defaults on
-	// to the exported descriptions if present.
-	// schema.SchemaDescriptionBuilder = func(s *schema.Schema) string {
-	// 	desc := s.Description
-	// 	if s.Default != nil {
-	// 		desc += fmt.Sprintf(" Defaults to `%v`.", s.Default)
-	// 	}
-	// 	return strings.TrimSpace(desc)
-	// }
+type Provider struct {
+	version string
+	repo    string
 }
 
-func New(version string) func() *schema.Provider {
-	return func() *schema.Provider {
-		p := &schema.Provider{
-			Schema: map[string]*schema.Schema{
-				"docker_repo": {
-					Description: "[DEPRECATED: use `repo`] Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var",
-					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("KO_DOCKER_REPO", ""),
-					Type:        schema.TypeString,
-				},
-				"repo": {
-					Description: "Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var",
-					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("KO_DOCKER_REPO", ""),
-					Type:        schema.TypeString,
-				},
-				"basic_auth": {
-					Description: "Basic auth to use to authorize requests",
-					Optional:    true,
-					Default:     "",
-					Type:        schema.TypeString,
-				},
+// ProviderModel describes the provider data model.
+type ProviderModel struct {
+	Repo      types.String `tfsdk:"repo"`
+	BasicAuth types.String `tfsdk:"basic_auth"`
+
+	// TODO: default base image
+	// TODO: default platforms
+}
+
+func (p *Provider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "ko"
+	resp.Version = p.version
+}
+
+func (p *Provider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"repo": schema.StringAttribute{
+				Description: "Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var",
+				Optional:    true,
 			},
-			ResourcesMap: map[string]*schema.Resource{
-				"ko_image":   resourceImage(),
-				"ko_build":   resourceBuild(),
-				"ko_resolve": resolveConfig(),
+			"basic_auth": schema.StringAttribute{
+				Description: "Basic auth to use to authorize requests",
+				Optional:    true,
+				Sensitive:   true,
 			},
+		},
+	}
+}
+func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var data ProviderModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// This is only for testing, so we can inject provider config
+	data.Repo = basetypes.NewStringValue(p.repo)
+
+	opts := Opts{
+		repo:    data.Repo.ValueString(),
+		version: p.version,
+	}
+
+	if basic := data.BasicAuth.ValueString(); basic != "" {
+		user, pass, ok := strings.Cut(basic, ":")
+		if !ok {
+			resp.Diagnostics.AddError("Client Error", "basic_auth must be in the form of `user:pass`")
+			return
 		}
+		opts.auth = &authn.Basic{
+			Username: user,
+			Password: pass,
+		}
+	}
 
-		p.ConfigureContextFunc = configure(version, p)
+	resp.ResourceData = opts
+	resp.DataSourceData = opts
+}
 
-		return p
+func (p *Provider) Resources(ctx context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewBuildResource,
 	}
 }
 
-// configure initializes the global provider with sensible defaults (that mimic what ko does with cli/cobra defaults)
-// TODO: review input parameters
-func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) { //nolint: revive
-	return func(ctx context.Context, s *schema.ResourceData) (interface{}, diag.Diagnostics) {
-		koDockerRepo, ok := s.Get("repo").(string)
-		if !ok {
-			return nil, diag.Errorf("expected repo to be string")
-		}
-		if koDockerRepo == "" {
-			koDockerRepo, ok = s.Get("docker_repo").(string)
-			if !ok {
-				return nil, diag.Errorf("expected docker_repo to be string")
-			}
-		}
+func (p *Provider) DataSources(ctx context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		//NewResolveResource,
+	}
+}
 
-		var auth *authn.Basic
-		if a, ok := s.Get("basic_auth").(string); !ok {
-			return nil, diag.Errorf("expected basic_auth to be string")
-		} else if a != "" {
-			user, pass, ok := strings.Cut(a, ":")
-			if !ok {
-				return nil, diag.Errorf(`basic_auth did not contain ":"`)
-			}
-			auth = &authn.Basic{
-				Username: user,
-				Password: pass,
-			}
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return &Provider{
+			version: version,
 		}
-
-		return &Opts{
-			bo: &options.BuildOptions{},
-			po: &options.PublishOptions{
-				DockerRepo: koDockerRepo,
-			},
-			auth: auth,
-		}, nil
 	}
 }
 
 type Opts struct {
-	bo   *options.BuildOptions
-	po   *options.PublishOptions
-	auth *authn.Basic
-}
-
-func NewProviderOpts(meta interface{}) (*Opts, error) {
-	opts, ok := meta.(*Opts)
-	if !ok {
-		return nil, fmt.Errorf("parsing provider args: %v", meta)
-	}
-
-	// This won't parse the cmd flags, but it will parse any environment vars and set some helpful defaults for us
-	if err := opts.bo.LoadConfig(); err != nil {
-		return nil, err
-	}
-
-	return opts, nil
+	version string
+	repo    string
+	auth    *authn.Basic
 }

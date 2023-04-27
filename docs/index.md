@@ -14,7 +14,7 @@ description: |-
 
 ```terraform
 provider "ko" {
-  docker_repo = "ttl.sh/foo"
+  repo = "ttl.sh/foo"
 }
 ```
 
@@ -23,6 +23,5 @@ provider "ko" {
 
 ### Optional
 
-- `basic_auth` (String) Basic auth to use to authorize requests
-- `docker_repo` (String) [DEPRECATED: use `repo`] Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var
+- `basic_auth` (String, Sensitive) Basic auth to use to authorize requests
 - `repo` (String) Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var

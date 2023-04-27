@@ -1,14 +1,18 @@
 provider "ko" {
-  docker_repo = "ttl.sh/booker"
+  repo = "ttl.sh/tf-ko"
+}
+
+resource "ko_build" "example" {
+  importpath = "github.com/google/ko/test"
+}
+
+output "image_ref" {
+  value = ko_build.example.image_ref
 }
 
 resource "ko_resolve" "example" {
   filenames = ["../../../testdata/k8s.yaml"]
   recursive = false
-}
-
-output "id" {
-  value = ko_resolve.example.id
 }
 
 output "manifests" {

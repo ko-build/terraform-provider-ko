@@ -1,29 +1,12 @@
 package provider
 
-import (
-	"bufio"
-	"bytes"
-	"context"
-	"crypto/sha256"
-	"errors"
-	"fmt"
-	"io"
-
-	"github.com/google/ko/pkg/build"
-	"github.com/google/ko/pkg/commands"
-	"github.com/google/ko/pkg/commands/options"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"gopkg.in/yaml.v3"
-)
-
+/*
 func resolveConfig() *schema.Resource {
 	return &schema.Resource{
 		Description: "",
 
 		CreateContext: resourceKoResolveCreate,
 		ReadContext:   resourceKoResolveRead,
-		DeleteContext: resourceKoBuildDelete,
 
 		Schema: map[string]*schema.Schema{
 			FilenamesKey: {
@@ -272,3 +255,4 @@ type nopWriteCloser struct {
 func (w *nopWriteCloser) Close() error {
 	return nil
 }
+*/

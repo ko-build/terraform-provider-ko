@@ -3,12 +3,12 @@
 page_title: "ko_build Resource - terraform-provider-ko"
 subcategory: ""
 description: |-
-  Sample resource in the Terraform provider scaffolding.
+  
 ---
 
 # ko_build (Resource)
 
-Sample resource in the Terraform provider scaffolding.
+
 
 
 
@@ -22,14 +22,14 @@ Sample resource in the Terraform provider scaffolding.
 ### Optional
 
 - `base_image` (String) base image to use
-- `platforms` (List of String) Which platform to use when pulling a multi-platform base. Format: all | <os>[/<arch>[/<variant>]][,platform]*
+- `platforms` (List of String) platforms to build for
 - `repo` (String) Container repository to publish images to. If set, this overrides the provider's docker_repo, and the image name will be exactly the specified `repo`, without the importpath appended.
 - `sbom` (String) The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).
-- `working_dir` (String) working directory for the build
+- `working_dir` (String) working directory to build from
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
-- `image_ref` (String) built image reference by digest
+- `id` (String) The ID of the built image.
+- `image_ref` (String) The image reference of the built image.
 
 
