@@ -1,15 +1,22 @@
 package provider
 
-/*
+import (
+	"fmt"
+	"regexp"
+	"testing"
+
+	ocitesting "github.com/chainguard-dev/terraform-provider-oci/testing"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+)
+
 func TestAccResourceKoResolve(t *testing.T) {
-	// Setup a local registry and have tests push to that.
-	srv := httptest.NewServer(registry.New())
-	defer srv.Close()
-	parts := strings.Split(srv.URL, ":")
-	url := fmt.Sprintf("localhost:%s/test", parts[len(parts)-1])
-	t.Setenv("KO_DOCKER_REPO", url)
+	repo, cleanup := ocitesting.SetupRepository(t, "test")
+	defer cleanup()
+	t.Setenv("KO_DOCKER_REPO", repo.String())
+	imageRefRE := regexp.MustCompile("^image: " + repo.String() + "/github.com/google/ko/test@sha256:")
 
 	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -20,7 +27,7 @@ func TestAccResourceKoResolve(t *testing.T) {
                 }
                 `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^image: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", imageRefRE),
 				),
 			},
 			{
@@ -31,8 +38,8 @@ func TestAccResourceKoResolve(t *testing.T) {
                 }
                 `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^0: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("^1: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("0: "+repo.String()+"/github.com/google/ko/test@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("1: "+repo.String()+"/github.com/google/ko/test@sha256:")),
 				),
 			},
 			{
@@ -46,13 +53,13 @@ func TestAccResourceKoResolve(t *testing.T) {
 					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile(fmt.Sprintf(`apiVersion: v1
 kind: Pod
 metadata:
-    name: kodata
-    namespace: default
+  name: kodata
+  namespace: default
 spec:
-    containers:
-        - image: %s/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:.+
-          name: obiwan
-`, url)),
+  containers:
+  - image: %s/github.com/google/ko/test@sha256:.+
+    name: obiwan
+`, repo.String())),
 					)),
 			},
 			{
@@ -63,11 +70,10 @@ spec:
 			    }
 			    `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^a: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("^b: "+url+"/test-46c4b272b3716c422d5ff6dfc7547fa9@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^a: "+repo.String()+"/github.com/google/ko/test@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("^b: "+repo.String()+"/github.com/google/ko/test@sha256:")),
 				),
 			},
 		},
 	})
 }
-*/

@@ -17,10 +17,12 @@ import (
 	"github.com/google/ko/pkg/build"
 	"github.com/google/ko/pkg/commands/options"
 	"github.com/google/ko/pkg/publish"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -105,7 +107,9 @@ func (r *BuildResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			"platforms": schema.ListAttribute{
 				Description:   "platforms to build for",
 				Optional:      true,
+				Computed:      true,
 				ElementType:   basetypes.StringType{},
+				Default:       listdefault.StaticValue(types.ListValueMust(basetypes.StringType{}, []attr.Value{basetypes.NewStringValue("linux/amd64")})),
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 				// TODO: validate platforms here.
 			},

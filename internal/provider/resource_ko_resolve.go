@@ -1,85 +1,299 @@
 package provider
 
-/*
-func resolveConfig() *schema.Resource {
-	return &schema.Resource{
-		Description: "",
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"os"
 
-		CreateContext: resourceKoResolveCreate,
-		ReadContext:   resourceKoResolveRead,
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/ko/pkg/build"
+	"github.com/google/ko/pkg/commands"
+	"github.com/google/ko/pkg/commands/options"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"gopkg.in/yaml.v2"
+)
 
-		Schema: map[string]*schema.Schema{
-			FilenamesKey: {
-				Description: "Filenames, directories, or URLs to files to use to create the resource",
-				Required:    true,
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				ForceNew:    true,
+var _ resource.Resource = &ResolveResource{}
+var _ resource.ResourceWithImportState = &ResolveResource{}
+
+func NewResolveResource() resource.Resource {
+	return &ResolveResource{}
+}
+
+// ResolveResource defines the resource implementation.
+type ResolveResource struct {
+	popts Opts
+}
+
+// ResolveResourceModel describes the resource data model.
+type ResolveResourceModel struct {
+	// Inputs
+	Filenames  types.List   `tfsdk:"filenames"`
+	Recursive  types.Bool   `tfsdk:"recursive"`
+	Push       types.Bool   `tfsdk:"push"`
+	Selector   types.String `tfsdk:"selector"`
+	Platforms  types.List   `tfsdk:"platforms"`
+	SBOM       types.String `tfsdk:"sbom"`
+	BaseImage  types.String `tfsdk:"base_image"`
+	Tags       types.List   `tfsdk:"tags"`
+	WorkingDir types.String `tfsdk:"working_dir"`
+
+	// Computed attributes
+	Id        types.String `tfsdk:"id"`
+	Manifests types.List   `tfsdk:"manifests"`
+
+	// Overridden by provider opts
+	repo     string
+	keychain authn.Keychain
+	version  string
+}
+
+func (r *ResolveResourceModel) update(popts Opts) {
+	r.version = popts.version
+	r.repo = popts.repo
+	if r.repo == "" { // env var is last resort
+		r.repo = os.Getenv("KO_DOCKER_REPO")
+	}
+
+	// TODO: Because of how ko's PublishOptions are defined, we can't
+	// actually inject this keychain, so basic_auth is effectively unused for ko_resolve.
+	if popts.auth != nil {
+		r.keychain = authn.NewMultiKeychain(staticKeychain{
+			repo: r.repo,
+			b:    popts.auth,
+		}, keychain)
+	} else {
+		r.keychain = keychain
+	}
+}
+
+func (r *ResolveResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_resolve"
+}
+
+func (r *ResolveResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"filenames": schema.ListAttribute{
+				Description:   "Filenames, directories, or URLs to files to use to create the resource",
+				Required:      true,
+				ElementType:   basetypes.StringType{},
+				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 			},
-			RecursiveKey: {
-				Description: "Process the directory used in -f, --filename recursively. Useful when you want to manage related manifests organized within the same directory.",
-				Optional:    true,
-				Type:        schema.TypeBool,
-				ForceNew:    true,
+			"recursive": schema.BoolAttribute{
+				Description:   "Process the directory used in -f, --filename recursively. Useful when you want to manage related manifests organized within the same directory.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
 			},
-			PushKey: {
-				Description: "Push images to KO_DOCKER_REPO",
-				Default:     true,
-				Optional:    true,
-				Type:        schema.TypeBool,
-				ForceNew:    true,
+			"push": schema.BoolAttribute{
+				Description:   "Push images to KO_DOCKER_REPO",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
 			},
-			SelectorKey: {
-				Description: "Selector (label query) to filter on, supports '=', '==', and '!='.(e.g. -l key1=value1,key2=value2)",
-				Optional:    true,
-				Type:        schema.TypeString,
-				ForceNew:    true,
+			"selector": schema.StringAttribute{
+				Description:   "Selector (label query) to filter on, supports '=', '==', and '!='.(e.g. -l key1=value1,key2=value2)",
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			PlatformsKey: {
-				Description: "Which platform to use when pulling a multi-platform base. Format: all | <os>[/<arch>[/<variant>]][,platform]*",
-				Optional:    true,
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				ForceNew:    true,
+			"platforms": schema.ListAttribute{
+				Description:   "Platforms to build for, comma separated. e.g. linux/amd64,linux/arm64",
+				Optional:      true,
+				Computed:      true,
+				ElementType:   basetypes.StringType{},
+				Default:       listdefault.StaticValue(types.ListValueMust(basetypes.StringType{}, []attr.Value{basetypes.NewStringValue("linux/amd64")})),
+				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 			},
-			SBOMKey: {
-				Description: "The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).",
-				Default:     "spdx",
-				Optional:    true,
-				Type:        schema.TypeString,
-				ForceNew:    true,
+			"sbom": schema.StringAttribute{
+				Description:   "The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).",
+				Optional:      true,
+				Computed:      true,
+				Default:       stringdefault.StaticString("none"),
+				Validators:    []validator.String{sbomValidator{}},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			BaseImageKey: {
-				Description: "",
-				Default:     defaultBaseImage,
-				Optional:    true,
-				Type:        schema.TypeString,
-				ForceNew:    true,
+			"base_image": schema.StringAttribute{
+				Optional:      true,
+				Computed:      true,
+				Default:       stringdefault.StaticString(defaultBaseImage),
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			TagsKey: {
-				Description: "Which tags to use for the produced image instead of the default 'latest' tag ",
-				Optional:    true,
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				ForceNew:    true,
+			"tags": schema.ListAttribute{
+				Description:   "Tags to apply to the image, comma separated. e.g. latest,1.0.0",
+				Optional:      true,
+				ElementType:   basetypes.StringType{},
+				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 			},
-			WorkingDirKey: {
-				Description: "Working directory for the build",
-				Optional:    true,
-				Default:     ".",
-				Type:        schema.TypeString,
-				ForceNew:    true,
+			"working_dir": schema.StringAttribute{
+				Description:   "The working directory to use for the build context.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 
-			// Computed fields
-			ManifestsKey: {
-				Description: "A list of resolved manifests in a 'yamldecode'able format. Note that whitespaces and nil docs will be stripped from these results.",
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
+			"id": schema.StringAttribute{
+				Description: "The ID of the resource.",
 				Computed:    true,
+			},
+			"manifests": schema.ListAttribute{
+				Description: "The manifests created by the resource.",
+				Computed:    true,
+				ElementType: basetypes.StringType{},
 			},
 		},
 	}
+}
+
+func (r *ResolveResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
+	popts, ok := req.ProviderData.(Opts)
+	if !ok {
+		resp.Diagnostics.AddError("Client Error", "invalid provider data")
+		return
+	}
+	r.popts = popts
+}
+
+func (r *ResolveResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data *ResolveResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.update(r.popts)
+
+	res, diag := NewResolver(ctx, data)
+	if diag.HasError() {
+		resp.Diagnostics.Append(diag...)
+		return
+	}
+
+	resolved, err := res.Resolve(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Resolve Error", err.Error())
+		return
+	}
+
+	mfs := make([]attr.Value, len(resolved.Manifests))
+	for i, m := range resolved.Manifests {
+		mfs[i] = basetypes.NewStringValue(m)
+	}
+	data.Manifests, diag = basetypes.NewListValue(basetypes.StringType{}, mfs)
+	if diag.HasError() {
+		resp.Diagnostics.Append(diag...)
+		return
+	}
+	data.Id = basetypes.NewStringValue(resolved.ID)
+
+	tflog.Trace(ctx, "created a resource")
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *ResolveResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *ResolveResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.update(r.popts)
+
+	res, diag := NewResolver(ctx, data)
+	if diag.HasError() {
+		resp.Diagnostics.Append(diag...)
+		return
+	}
+	res.po.Tags = []string{} // IMPORTANT: Don't tag on reads!
+
+	resolved, err := res.Resolve(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Resolve Error", err.Error())
+		return
+	}
+
+	mfs := make([]attr.Value, len(resolved.Manifests))
+	for i, m := range resolved.Manifests {
+		mfs[i] = basetypes.NewStringValue(m)
+	}
+	data.Manifests, diag = basetypes.NewListValue(basetypes.StringType{}, mfs)
+	if diag.HasError() {
+		resp.Diagnostics.Append(diag...)
+		return
+	}
+	data.Id = basetypes.NewStringValue(resolved.ID)
+
+	tflog.Trace(ctx, "created a resource")
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *ResolveResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data *ResolveResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.update(r.popts)
+
+	res, diag := NewResolver(ctx, data)
+	if diag.HasError() {
+		resp.Diagnostics.Append(diag...)
+		return
+	}
+
+	resolved, err := res.Resolve(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Resolve Error", err.Error())
+		return
+	}
+
+	mfs := make([]attr.Value, len(resolved.Manifests))
+	for i, m := range resolved.Manifests {
+		mfs[i] = basetypes.NewStringValue(m)
+	}
+	data.Manifests, diag = basetypes.NewListValue(basetypes.StringType{}, mfs)
+	if diag.HasError() {
+		resp.Diagnostics.Append(diag...)
+		return
+	}
+	data.Id = basetypes.NewStringValue(resolved.ID)
+
+	tflog.Trace(ctx, "created a resource")
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *ResolveResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *ResolveResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// TODO: If we ever want to delete images from the registry, we can do it here.
+}
+
+func (r *ResolveResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 type ResolverInt interface {
@@ -98,51 +312,41 @@ type Resolver struct {
 	so *options.SelectorOptions
 }
 
-func NewResolver(d *schema.ResourceData, meta interface{}) (*Resolver, error) {
-	opts, err := NewProviderOpts(meta)
-	if err != nil {
-		return nil, err
+func NewResolver(ctx context.Context, data *ResolveResourceModel) (*Resolver, diag.Diagnostics) {
+	var platforms, tags, filenames []string
+	if diag := data.Platforms.ElementsAs(ctx, &platforms, false); diag.HasError() {
+		return nil, diag
 	}
-
+	if diag := data.Tags.ElementsAs(ctx, &tags, false); diag.HasError() {
+		return nil, diag
+	}
+	if diag := data.Filenames.ElementsAs(ctx, &filenames, false); diag.HasError() {
+		return nil, diag
+	}
 	r := &Resolver{
-		bo: opts.bo,
-		po: opts.po,
-		fo: &options.FilenameOptions{},
-		so: &options.SelectorOptions{},
+		bo: &options.BuildOptions{
+			WorkingDirectory: data.WorkingDir.ValueString(),
+			BaseImage:        data.BaseImage.ValueString(),
+			SBOM:             data.SBOM.ValueString(),
+			Platforms:        platforms,
+		},
+		po: &options.PublishOptions{
+			Push:                data.Push.ValueBool(),
+			Tags:                tags,
+			DockerRepo:          data.repo,
+			PreserveImportPaths: true,
+			Bare:                false,
+			BaseImportPaths:     false,
+			UserAgent:           fmt.Sprintf("terraform-provider-ko/%s", data.version),
+		},
+		fo: &options.FilenameOptions{
+			Filenames: filenames,
+			Recursive: data.Recursive.ValueBool(),
+		},
+		so: &options.SelectorOptions{
+			Selector: data.Selector.ValueString(),
+		},
 	}
-
-	if p, ok := d.Get(BaseImageKey).(string); ok {
-		r.bo.BaseImage = p
-	}
-
-	if p, ok := d.Get(TagsKey).([]interface{}); ok {
-		if len(p) == 0 {
-			r.po.Tags = []string{"latest"}
-		} else {
-			r.po.Tags = StringSlice(p)
-		}
-	}
-
-	if p, ok := d.Get(PushKey).(bool); ok {
-		r.po.Push = p
-	}
-
-	if p, ok := d.Get(FilenamesKey).([]interface{}); ok {
-		r.fo.Filenames = StringSlice(p)
-	}
-
-	if p, ok := d.Get(RecursiveKey).(bool); ok {
-		r.fo.Recursive = p
-	}
-
-	if p, ok := d.Get(SelectorKey).(string); ok {
-		r.so.Selector = p
-	}
-
-	if p, ok := d.Get(WorkingDirKey).(string); ok {
-		r.bo.WorkingDirectory = p
-	}
-
 	return r, nil
 }
 
@@ -174,6 +378,8 @@ func (r *Resolver) Resolve(ctx context.Context) (*Resolved, error) {
 		return nil, err
 	}
 
+	log.Println("RESOLVED:", resolveBuf.String()) // TODO remove
+
 	// Split the dump of multi-doc yaml back into their individual nodes
 	// NOTE: Don't use a strings.Split to ensure we filter out any null docs
 	manifests := []string{}
@@ -187,7 +393,6 @@ func (r *Resolver) Resolve(ctx context.Context) (*Resolved, error) {
 			}
 			return nil, err
 		}
-
 		if d == nil {
 			continue
 		}
@@ -207,46 +412,7 @@ func (r *Resolver) Resolve(ctx context.Context) (*Resolved, error) {
 	}, nil
 }
 
-func resourceKoResolveCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	r, err := NewResolver(d, meta)
-	if err != nil {
-		return diag.Errorf("building resolver: %v", err)
-	}
-
-	resolved, err := r.Resolve(ctx)
-	if err != nil {
-		return diag.Errorf("resolving: %v", err)
-	}
-
-	d.SetId(resolved.ID)
-	_ = d.Set("manifests", resolved.Manifests)
-	return nil
-}
-
-func resourceKoResolveRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	r, err := NewResolver(d, meta)
-	if err != nil {
-		return diag.Errorf("building resolver: %v", err)
-	}
-
-	// NOTE: Fake the publisher to prevent needing to rebuild the image on reads
-	r.po.Tags = []string{}
-
-	resolved, err := r.Resolve(ctx)
-	if err != nil {
-		return diag.Errorf("resolving: %v", err)
-	}
-
-	_ = d.Set("manifests", resolved.Manifests)
-	if resolved.ID != d.Id() {
-		d.SetId("")
-	}
-	return nil
-}
-
-func resourceKoResolveDelete(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics { //nolint: unused
-	return nil
-}
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type nopWriteCloser struct {
 	*bufio.Writer
@@ -255,4 +421,3 @@ type nopWriteCloser struct {
 func (w *nopWriteCloser) Close() error {
 	return nil
 }
-*/
