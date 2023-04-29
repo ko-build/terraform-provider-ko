@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -377,8 +376,6 @@ func (r *Resolver) Resolve(ctx context.Context) (*Resolved, error) {
 	if err := w.Flush(); err != nil {
 		return nil, err
 	}
-
-	log.Println("RESOLVED:", resolveBuf.String()) // TODO remove
 
 	// Split the dump of multi-doc yaml back into their individual nodes
 	// NOTE: Don't use a strings.Split to ensure we filter out any null docs
