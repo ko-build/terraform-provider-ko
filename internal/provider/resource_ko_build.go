@@ -56,10 +56,10 @@ type BuildResourceModel struct {
 	Repo       types.String `tfsdk:"repo"`
 
 	// Computed attributes
-	Id       types.String `tfsdk:"id"`
+	ID       types.String `tfsdk:"id"`
 	ImageRef types.String `tfsdk:"image_ref"`
 
-	// Overridden by provider opts
+	// Set based on provider opts, see update() below.
 	repo     string
 	bare     bool
 	keychain authn.Keychain
@@ -124,7 +124,7 @@ func (r *BuildResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Description:   "The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).",
 				Optional:      true,
 				Computed:      true,
-				Default:       stringdefault.StaticString("none"),
+				Default:       stringdefault.StaticString("spdx"),
 				Validators:    []validator.String{sbomValidator{}},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -169,12 +169,12 @@ func (r *BuildResource) Create(ctx context.Context, req resource.CreateRequest, 
 	data.update(r.popts)
 
 	digest, diags := doBuild(ctx, *data)
+	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
 		return
 	}
 
-	data.Id = types.StringValue(digest)
+	data.ID = types.StringValue(digest)
 	data.ImageRef = types.StringValue(digest)
 
 	tflog.Trace(ctx, "created a resource")
@@ -190,16 +190,16 @@ func (r *BuildResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	data.update(r.popts)
 
 	digest, diags := doBuild(ctx, *data)
+	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
 		return
 	}
 
 	if digest != data.ImageRef.ValueString() {
-		data.Id = types.StringValue("")
+		data.ID = types.StringValue("")
 		data.ImageRef = types.StringValue("")
 	} else {
-		data.Id = types.StringValue(digest)
+		data.ID = types.StringValue(digest)
 		data.ImageRef = types.StringValue(digest)
 	}
 
@@ -215,12 +215,12 @@ func (r *BuildResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	data.update(r.popts)
 
 	digest, diags := doBuild(ctx, *data)
+	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
 		return
 	}
 
-	data.Id = types.StringValue(digest)
+	data.ID = types.StringValue(digest)
 	data.ImageRef = types.StringValue(digest)
 
 	tflog.Trace(ctx, "updated a resource")
@@ -288,7 +288,8 @@ func makeBuilder(ctx context.Context, data BuildResourceModel) (*build.Caching, 
 			}
 
 			desc, err := remote.Get(ref,
-				//remote.WithContext(ctx),
+				// TODO(jason): Using the context here causes a "context canceled" error getting images from a base index.
+				// remote.WithContext(ctx),
 				remote.WithAuthFromKeychain(data.keychain),
 				remote.WithUserAgent(fmt.Sprintf("terraform-provider-ko/%s", data.version)),
 			)

@@ -58,10 +58,10 @@ type ResolveResourceModel struct {
 	WorkingDir types.String `tfsdk:"working_dir"`
 
 	// Computed attributes
-	Id        types.String `tfsdk:"id"`
+	ID        types.String `tfsdk:"id"`
 	Manifests types.List   `tfsdk:"manifests"`
 
-	// Overridden by provider opts
+	// Set based on provider opts, see update() below.
 	repo     string
 	keychain authn.Keychain
 	version  string
@@ -86,11 +86,11 @@ func (r *ResolveResourceModel) update(popts Opts) {
 	}
 }
 
-func (r *ResolveResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (r *ResolveResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_resolve"
 }
 
-func (r *ResolveResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *ResolveResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"filenames": schema.ListAttribute{
@@ -126,7 +126,7 @@ func (r *ResolveResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:   "The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).",
 				Optional:      true,
 				Computed:      true,
-				Default:       stringdefault.StaticString("none"),
+				Default:       stringdefault.StaticString("spdx"),
 				Validators:    []validator.String{sbomValidator{}},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -147,6 +147,7 @@ func (r *ResolveResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			// TODO(jason): add "repo" to match ko_build, with same defaulting logic.
 
 			"id": schema.StringAttribute{
 				Description: "The ID of the resource.",
@@ -184,8 +185,8 @@ func (r *ResolveResource) Create(ctx context.Context, req resource.CreateRequest
 	data.update(r.popts)
 
 	res, diag := NewResolver(ctx, data)
+	resp.Diagnostics.Append(diag...)
 	if diag.HasError() {
-		resp.Diagnostics.Append(diag...)
 		return
 	}
 
@@ -200,11 +201,11 @@ func (r *ResolveResource) Create(ctx context.Context, req resource.CreateRequest
 		mfs[i] = basetypes.NewStringValue(m)
 	}
 	data.Manifests, diag = basetypes.NewListValue(basetypes.StringType{}, mfs)
+	resp.Diagnostics.Append(diag...)
 	if diag.HasError() {
-		resp.Diagnostics.Append(diag...)
 		return
 	}
-	data.Id = basetypes.NewStringValue(resolved.ID)
+	data.ID = basetypes.NewStringValue(resolved.ID)
 
 	tflog.Trace(ctx, "created a resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -219,8 +220,8 @@ func (r *ResolveResource) Read(ctx context.Context, req resource.ReadRequest, re
 	data.update(r.popts)
 
 	res, diag := NewResolver(ctx, data)
+	resp.Diagnostics.Append(diag...)
 	if diag.HasError() {
-		resp.Diagnostics.Append(diag...)
 		return
 	}
 	res.po.Tags = []string{} // IMPORTANT: Don't tag on reads!
@@ -236,11 +237,11 @@ func (r *ResolveResource) Read(ctx context.Context, req resource.ReadRequest, re
 		mfs[i] = basetypes.NewStringValue(m)
 	}
 	data.Manifests, diag = basetypes.NewListValue(basetypes.StringType{}, mfs)
+	resp.Diagnostics.Append(diag...)
 	if diag.HasError() {
-		resp.Diagnostics.Append(diag...)
 		return
 	}
-	data.Id = basetypes.NewStringValue(resolved.ID)
+	data.ID = basetypes.NewStringValue(resolved.ID)
 
 	tflog.Trace(ctx, "created a resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -255,8 +256,8 @@ func (r *ResolveResource) Update(ctx context.Context, req resource.UpdateRequest
 	data.update(r.popts)
 
 	res, diag := NewResolver(ctx, data)
+	resp.Diagnostics.Append(diag...)
 	if diag.HasError() {
-		resp.Diagnostics.Append(diag...)
 		return
 	}
 
@@ -271,11 +272,11 @@ func (r *ResolveResource) Update(ctx context.Context, req resource.UpdateRequest
 		mfs[i] = basetypes.NewStringValue(m)
 	}
 	data.Manifests, diag = basetypes.NewListValue(basetypes.StringType{}, mfs)
+	resp.Diagnostics.Append(diag...)
 	if diag.HasError() {
-		resp.Diagnostics.Append(diag...)
 		return
 	}
-	data.Id = basetypes.NewStringValue(resolved.ID)
+	data.ID = basetypes.NewStringValue(resolved.ID)
 
 	tflog.Trace(ctx, "created a resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -330,13 +331,11 @@ func NewResolver(ctx context.Context, data *ResolveResourceModel) (*Resolver, di
 			Platforms:        platforms,
 		},
 		po: &options.PublishOptions{
-			Push:                data.Push.ValueBool(),
-			Tags:                tags,
-			DockerRepo:          data.repo,
-			PreserveImportPaths: true,
-			Bare:                false,
-			BaseImportPaths:     false,
-			UserAgent:           fmt.Sprintf("terraform-provider-ko/%s", data.version),
+			Push:       data.Push.ValueBool(),
+			Tags:       tags,
+			DockerRepo: data.repo,
+			UserAgent:  fmt.Sprintf("terraform-provider-ko/%s", data.version),
+			// The default Namer will be used, producing images named like "app-<md5" for compatibility with Dockerhub.
 		},
 		fo: &options.FilenameOptions{
 			Filenames: filenames,

@@ -4,11 +4,13 @@ import (
 	"context"
 	"strings"
 
+	"github.com/chainguard-dev/terraform-provider-oci/pkg/validators"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -21,25 +23,27 @@ type Provider struct {
 }
 
 // ProviderModel describes the provider data model.
-type ProviderModel struct {
+type ProviderModel struct { //nolint:revive
 	Repo      types.String `tfsdk:"repo"`
 	BasicAuth types.String `tfsdk:"basic_auth"`
 
 	// TODO: default base image
+	// TODO: default base image per importpath
 	// TODO: default platforms
 }
 
-func (p *Provider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+func (p *Provider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
 	resp.TypeName = "ko"
 	resp.Version = p.version
 }
 
-func (p *Provider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *Provider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"repo": schema.StringAttribute{
 				Description: "Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var",
 				Optional:    true,
+				Validators:  []validator.String{validators.RepoValidator{}},
 			},
 			"basic_auth": schema.StringAttribute{
 				Description: "Basic auth to use to authorize requests",
@@ -57,7 +61,9 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 	}
 
 	// This is only for testing, so we can inject provider config
-	data.Repo = basetypes.NewStringValue(p.repo)
+	if p.repo != "" {
+		data.Repo = basetypes.NewStringValue(p.repo)
+	}
 
 	opts := Opts{
 		repo:    data.Repo.ValueString(),
@@ -80,14 +86,14 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 	resp.DataSourceData = opts
 }
 
-func (p *Provider) Resources(ctx context.Context) []func() resource.Resource {
+func (p *Provider) Resources(context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewBuildResource,
 		NewResolveResource,
 	}
 }
 
-func (p *Provider) DataSources(ctx context.Context) []func() datasource.DataSource {
+func (p *Provider) DataSources(context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{}
 }
 

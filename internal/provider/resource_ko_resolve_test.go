@@ -13,7 +13,6 @@ func TestAccResourceKoResolve(t *testing.T) {
 	repo, cleanup := ocitesting.SetupRepository(t, "test")
 	defer cleanup()
 	t.Setenv("KO_DOCKER_REPO", repo.String())
-	imageRefRE := regexp.MustCompile("^image: " + repo.String() + "/github.com/google/ko/test@sha256:")
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -27,7 +26,7 @@ func TestAccResourceKoResolve(t *testing.T) {
                 }
                 `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", imageRefRE),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^image: "+repo.String()+"/test-[a-z0-9]+@sha256:")),
 				),
 			},
 			{
@@ -38,8 +37,8 @@ func TestAccResourceKoResolve(t *testing.T) {
                 }
                 `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("0: "+repo.String()+"/github.com/google/ko/test@sha256:")),
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("1: "+repo.String()+"/github.com/google/ko/test@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("0: "+repo.String()+"/test-[a-z0-9]+@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("1: "+repo.String()+"/test-[a-z0-9]+@sha256:")),
 				),
 			},
 			{
@@ -57,7 +56,7 @@ metadata:
   namespace: default
 spec:
   containers:
-  - image: %s/github.com/google/ko/test@sha256:.+
+  - image: %s/test-[a-z0-9]+@sha256:.+
     name: obiwan
 `, repo.String())),
 					)),
@@ -70,8 +69,8 @@ spec:
 			    }
 			    `,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^a: "+repo.String()+"/github.com/google/ko/test@sha256:")),
-					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("^b: "+repo.String()+"/github.com/google/ko/test@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.0", regexp.MustCompile("^a: "+repo.String()+"/test-[a-z0-9]+@sha256:")),
+					resource.TestMatchResourceAttr("ko_resolve.foo", "manifests.1", regexp.MustCompile("^b: "+repo.String()+"/test-[a-z0-9]+@sha256:")),
 				),
 			},
 		},
