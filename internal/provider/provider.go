@@ -28,7 +28,6 @@ type ProviderModel struct { //nolint:revive
 	BasicAuth types.String `tfsdk:"basic_auth"`
 
 	// TODO: default base image
-	// TODO: default base image per importpath
 	// TODO: default platforms
 }
 
