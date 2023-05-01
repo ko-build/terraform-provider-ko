@@ -335,7 +335,7 @@ func NewResolver(ctx context.Context, data *ResolveResourceModel) (*Resolver, di
 			Tags:       tags,
 			DockerRepo: data.repo,
 			UserAgent:  fmt.Sprintf("terraform-provider-ko/%s", data.version),
-			// The default Namer will be used, producing images named like "app-<md5" for compatibility with Dockerhub.
+			// The default Namer will be used, producing images named like "app-<md5>" for compatibility with Dockerhub.
 		},
 		fo: &options.FilenameOptions{
 			Filenames: filenames,
