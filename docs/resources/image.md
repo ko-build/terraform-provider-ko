@@ -37,5 +37,3 @@ resource "ko_image" "example" {
 
 - `id` (String) The ID of this resource.
 - `image_ref` (String) built image reference by digest
-
-

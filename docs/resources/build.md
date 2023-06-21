@@ -31,5 +31,3 @@ Sample resource in the Terraform provider scaffolding.
 
 - `id` (String) The ID of this resource.
 - `image_ref` (String) built image reference by digest
-
-

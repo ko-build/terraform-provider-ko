@@ -53,5 +53,3 @@ output "manifests" {
 
 - `id` (String) The ID of this resource.
 - `manifests` (List of String) A list of resolved manifests in a 'yamldecode'able format. Note that whitespaces and nil docs will be stripped from these results.
-
-
