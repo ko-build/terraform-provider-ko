@@ -10,7 +10,6 @@ issues:
 linters:
   enable:
     - asciicheck
-    - depguard
     - errorlint
     - gofmt
     - gosec
