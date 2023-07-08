@@ -30,7 +30,6 @@ resource "aws_ecr_repository" "foo" {
 
 resource "ko_build" "image" {
   repo        = aws_ecr_repository.foo.repository_url
-  base_image  = "public.ecr.aws/lambda/provided:al2"
   importpath  = "github.com/ko-build/terraform-provider-ko/cmd/test-lambda"
   working_dir = path.module
   // Disable SBOM generation due to
@@ -42,14 +41,14 @@ resource "aws_iam_role" "lambda_access_role" {
   name = "lambda_access_role"
 
   assume_role_policy = jsonencode({
-    "Version": "2012-10-17",
-    "Statement": [
+    "Version" : "2012-10-17",
+    "Statement" : [
       {
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "lambda.amazonaws.com"
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : "lambda.amazonaws.com"
         },
-        "Action": "sts:AssumeRole"
+        "Action" : "sts:AssumeRole"
       }
     ]
   })
