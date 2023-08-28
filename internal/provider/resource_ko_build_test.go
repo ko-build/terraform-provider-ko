@@ -128,6 +128,33 @@ func TestAccResourceKoBuild(t *testing.T) {
 			}},
 		})
 	}
+
+	t.Run("SOURCE_DATE_EPOCH", func(t *testing.T) {
+		t.Setenv("SOURCE_DATE_EPOCH", "1234567890")
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: providerFactories,
+			Steps: []resource.TestStep{{
+				Config: `resource "ko_build" "foo" {
+					importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
+				}`,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
+				),
+			}},
+		})
+	})
+	t.Run("SOURCE_DATE_EPOCH_failure", func(t *testing.T) {
+		t.Setenv("SOURCE_DATE_EPOCH", "abc123")
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: providerFactories,
+			Steps: []resource.TestStep{{
+				Config: `resource "ko_build" "foo" {
+					importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
+				}`,
+				ExpectError: regexp.MustCompile("should be the number of seconds since"),
+			}},
+		})
+	})
 }
 
 func TestAccResourceKoBuild_ImageRepo(t *testing.T) {

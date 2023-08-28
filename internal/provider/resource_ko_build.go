@@ -6,13 +6,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/ko/pkg/build"
@@ -176,6 +180,16 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 		bo = append(bo, build.WithDisabledSBOM())
 	default:
 		return nil, fmt.Errorf("unknown sbom type: %q", o.sbom)
+	}
+
+	// We read the environment variable directly here instead of plumbing it through as a provider option to keep the behavior consistent with resolve.
+	// While CreationTime is a build.Option, it is not a field in options.BuildOptions and is inferred from the environment variable when a new resolver is created.
+	if epoch := os.Getenv("SOURCE_DATE_EPOCH"); epoch != "" {
+		s, err := strconv.ParseInt(epoch, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("the environment variable %s should be the number of seconds since January 1st 1970, 00:00 UTC, got: %w", epoch, err)
+		}
+		bo = append(bo, build.WithCreationTime(v1.Time{Time: time.Unix(s, 0)}))
 	}
 
 	b, err := build.NewGo(ctx, o.workingDir, bo...)
