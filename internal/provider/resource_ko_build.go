@@ -285,7 +285,7 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 	ref, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
-		return diag.Errorf("doBuild: %v", err)
+		return diag.Errorf("[id=%s] create doBuild: %v", d.Id(), err)
 	}
 
 	_ = d.Set("image_ref", ref)
@@ -301,7 +301,14 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 
 	ref, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
-		return diag.Errorf("doBuild: %v", err)
+		// Check for conditions that might indicate that the underlying module has been deleted.
+		// This is not an exhaustive list, but is a best effort check to see if the build failed because a deletion.
+		// See https://www.hashicorp.com/blog/writing-custom-terraform-providers#implementing-read for more details.
+		if errors.Is(err, os.ErrNotExist) {
+			d.SetId("")
+			return nil
+		}
+		return diag.Errorf("[id=%s] read doBuild: %v", d.Id(), err)
 	}
 
 	_ = d.Set("image_ref", ref)
