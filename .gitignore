@@ -24,6 +24,9 @@ website/node_modules
 *.test
 *.iml
 
+# Ignore federated GCP credentials.
+gha-creds-*.json
+
 website/vendor
 
 # Test exclusions
