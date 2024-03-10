@@ -137,6 +137,7 @@ var (
 
 func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) {
 	bo := []build.Option{
+		build.WithTrimpath(true),
 		build.WithPlatforms(o.platforms...),
 		build.WithBaseImages(func(ctx context.Context, s string) (name.Reference, build.Result, error) {
 			ref, err := name.ParseReference(o.baseImage)
