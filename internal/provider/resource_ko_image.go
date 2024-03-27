@@ -51,7 +51,7 @@ func resourceImage() *schema.Resource {
 				Description: "import path to build",
 				Type:        schema.TypeString,
 				Required:    true,
-				ValidateDiagFunc: func(data interface{}, path cty.Path) diag.Diagnostics {
+				ValidateDiagFunc: func(_ interface{}, _ cty.Path) diag.Diagnostics {
 					// TODO: validate stuff here.
 					return nil
 				},
@@ -115,7 +115,7 @@ func resourceImageV0() *schema.Resource {
 				Description: "import path to build",
 				Type:        schema.TypeString,
 				Required:    true,
-				ValidateDiagFunc: func(data interface{}, path cty.Path) diag.Diagnostics {
+				ValidateDiagFunc: func(_ interface{}, _ cty.Path) diag.Diagnostics {
 					// TODO: validate stuff here.
 					return nil
 				},
