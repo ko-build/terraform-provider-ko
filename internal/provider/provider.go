@@ -49,6 +49,12 @@ func New(version string) func() *schema.Provider {
 					Default:     "",
 					Type:        schema.TypeString,
 				},
+				BaseImageKey: {
+					Description: "Default base image for builds",
+					Optional:    true,
+					Default:     "",
+					Type:        schema.TypeString,
+				},
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"ko_image":   resourceImage(),
@@ -78,6 +84,11 @@ func configure(version string, p *schema.Provider) func(context.Context, *schema
 			}
 		}
 
+		baseImage, ok := s.Get(BaseImageKey).(string)
+		if !ok {
+			return nil, diag.Errorf("expected base_image to be string")
+		}
+
 		var auth *authn.Basic
 		if a, ok := s.Get("basic_auth").(string); !ok {
 			return nil, diag.Errorf("expected basic_auth to be string")
@@ -93,7 +104,9 @@ func configure(version string, p *schema.Provider) func(context.Context, *schema
 		}
 
 		return &Opts{
-			bo: &options.BuildOptions{},
+			bo: &options.BuildOptions{
+				BaseImage: baseImage,
+			},
 			po: &options.PublishOptions{
 				DockerRepo: koDockerRepo,
 			},

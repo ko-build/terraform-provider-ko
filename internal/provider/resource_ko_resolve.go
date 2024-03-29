@@ -68,7 +68,7 @@ func resolveConfig() *schema.Resource {
 			},
 			BaseImageKey: {
 				Description: "",
-				Default:     defaultBaseImage,
+				Default:     "",
 				Optional:    true,
 				Type:        schema.TypeString,
 				ForceNew:    true,

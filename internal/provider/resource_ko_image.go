@@ -73,7 +73,7 @@ func resourceImage() *schema.Resource {
 			},
 			BaseImageKey: {
 				Description: "base image to use",
-				Default:     defaultBaseImage,
+				Default:     "",
 				Optional:    true,
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
@@ -137,7 +137,7 @@ func resourceImageV0() *schema.Resource {
 			},
 			BaseImageKey: {
 				Description: "base image to use",
-				Default:     defaultBaseImage,
+				Default:     "",
 				Optional:    true,
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
