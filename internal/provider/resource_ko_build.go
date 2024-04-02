@@ -202,20 +202,19 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 
 var baseImages sync.Map // Cache of base image lookups.
 
-func doBuild(ctx context.Context, opts buildOptions) (string, error) {
+func doBuild(ctx context.Context, opts buildOptions) (build.Result, error) {
 	if opts.imageRepo == "" {
-		return "", errors.New("one of KO_DOCKER_REPO env var, or provider `docker_repo` or `repo`, or image resource `repo` must be set")
+		return nil, errors.New("one of KO_DOCKER_REPO env var, or provider `docker_repo` or `repo`, or image resource `repo` must be set")
 	}
 
 	b, err := opts.makeBuilder(ctx)
 	if err != nil {
-		return "", fmt.Errorf("NewGo: %w", err)
+		return nil, fmt.Errorf("NewGo: %w", err)
 	}
-	r, err := b.Build(ctx, opts.ip)
-	if err != nil {
-		return "", fmt.Errorf("build: %w", err)
-	}
+	return b.Build(ctx, opts.ip)
+}
 
+func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, error) {
 	kc := keychain
 	if opts.auth != nil {
 		kc = authn.NewMultiKeychain(staticKeychain{opts.imageRepo, opts.auth}, kc)
@@ -284,9 +283,13 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("configuring provider: %v", err)
 	}
 
-	ref, err := doBuild(ctx, fromData(d, po))
+	res, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
 		return diag.Errorf("[id=%s] create doBuild: %v", d.Id(), err)
+	}
+	ref, err := doPublish(ctx, res, fromData(d, po))
+	if err != nil {
+		return diag.Errorf("[id=%s] create doPublish: %v", d.Id(), err)
 	}
 
 	_ = d.Set("image_ref", ref)
@@ -300,7 +303,7 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.Errorf("configuring provider: %v", err)
 	}
 
-	ref, err := doBuild(ctx, fromData(d, po))
+	res, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
 		// Check for conditions that might indicate that the underlying module has been deleted.
 		// This is not an exhaustive list, but is a best effort check to see if the build failed because a deletion.
@@ -311,10 +314,15 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 		}
 		return diag.Errorf("[id=%s] read doBuild: %v", d.Id(), err)
 	}
+	dig, err := res.Digest()
+	if err != nil {
+		return diag.Errorf("[id=%s] read digest: %v", d.Id(), err)
+	}
+	digstr := dig.String()
 
-	_ = d.Set("image_ref", ref)
-	if ref != d.Id() {
-		d.SetId("")
+	_ = d.Set("image_ref", digstr)
+	if digstr != d.Id() {
+		d.SetId("") // triggers create on next apply.
 	} else {
 		log.Println("image not changed")
 	}
