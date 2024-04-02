@@ -217,3 +217,27 @@ func TestAccResourceKoBuild_ProviderRepo(t *testing.T) {
 		}},
 	})
 }
+
+func TestAccResourceKoBuild_PlanNoPush(t *testing.T) {
+	// Don't run a registry at this endpoint, we want to test that we don't push anything.
+	t.Setenv("KO_DOCKER_REPO", "localhost:12345/test")
+
+	// Test that the repo attribute of the provider is respected, and overrides
+	// the KO_DOCKER_REPO.
+	// When configured in the provider, the importpath is appended to the image ref.
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{{
+			Config: `
+		resource "ko_build" "foo" {
+			importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
+		}
+		`,
+			PlanOnly:           true, // Only plan, and expect a diff.
+			ExpectNonEmptyPlan: true,
+			Check: resource.ComposeTestCheckFunc(
+				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", regexp.MustCompile("^localhost:12345/github.com/ko-build/terraform-provider-ko/cmd/test@sha256:")),
+			),
+		}},
+	})
+}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"sync"
@@ -202,16 +201,40 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 
 var baseImages sync.Map // Cache of base image lookups.
 
-func doBuild(ctx context.Context, opts buildOptions) (build.Result, error) {
+// doBuild builds the image and returns the built image, and the full name.Reference by digest that the image would be pushed to.
+//
+// doBuild doesn't publish images, use doPublish to publish the build.Result that doBuild returns.
+func doBuild(ctx context.Context, opts buildOptions) (build.Result, string, error) {
 	if opts.imageRepo == "" {
-		return nil, errors.New("one of KO_DOCKER_REPO env var, or provider `docker_repo` or `repo`, or image resource `repo` must be set")
+		return nil, "", errors.New("one of KO_DOCKER_REPO env var, or provider `docker_repo` or `repo`, or image resource `repo` must be set")
 	}
 
 	b, err := opts.makeBuilder(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewGo: %w", err)
+		return nil, "", fmt.Errorf("NewGo: %w", err)
 	}
-	return b.Build(ctx, opts.ip)
+	res, err := b.Build(ctx, opts.ip)
+	if err != nil {
+		return nil, "", fmt.Errorf("build: %w", err)
+	}
+	dig, err := res.Digest()
+	if err != nil {
+		return nil, "", fmt.Errorf("digest: %w", err)
+	}
+	ref, err := name.ParseReference(namer(opts)(opts.imageRepo, opts.ip))
+	if err != nil {
+		return nil, "", fmt.Errorf("ParseReference: %w", err)
+	}
+
+	return res, ref.Context().Digest(dig.String()).String(), nil
+}
+
+func namer(opts buildOptions) publish.Namer {
+	return options.MakeNamer(&options.PublishOptions{
+		DockerRepo:          opts.imageRepo,
+		Bare:                opts.bare,
+		PreserveImportPaths: !opts.bare,
+	})
 }
 
 func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, error) {
@@ -219,13 +242,7 @@ func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, 
 	if opts.auth != nil {
 		kc = authn.NewMultiKeychain(staticKeychain{opts.imageRepo, opts.auth}, kc)
 	}
-	po := []publish.Option{publish.WithAuthFromKeychain(kc)}
-	if opts.bare {
-		po = append(po, publish.WithNamer(options.MakeNamer(&options.PublishOptions{
-			DockerRepo: opts.imageRepo,
-			Bare:       true,
-		})))
-	}
+	po := []publish.Option{publish.WithAuthFromKeychain(kc), publish.WithNamer(namer(opts))}
 
 	p, err := publish.NewDefault(opts.imageRepo, po...)
 	if err != nil {
@@ -283,7 +300,7 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("configuring provider: %v", err)
 	}
 
-	res, err := doBuild(ctx, fromData(d, po))
+	res, _, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
 		return diag.Errorf("[id=%s] create doBuild: %v", d.Id(), err)
 	}
@@ -303,7 +320,7 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.Errorf("configuring provider: %v", err)
 	}
 
-	res, err := doBuild(ctx, fromData(d, po))
+	_, ref, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
 		// Check for conditions that might indicate that the underlying module has been deleted.
 		// This is not an exhaustive list, but is a best effort check to see if the build failed because a deletion.
@@ -314,17 +331,12 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 		}
 		return diag.Errorf("[id=%s] read doBuild: %v", d.Id(), err)
 	}
-	dig, err := res.Digest()
-	if err != nil {
-		return diag.Errorf("[id=%s] read digest: %v", d.Id(), err)
-	}
-	digstr := dig.String()
 
-	_ = d.Set("image_ref", digstr)
-	if digstr != d.Id() {
+	_ = d.Set("image_ref", ref)
+	if ref != d.Id() {
 		d.SetId("") // triggers create on next apply.
 	} else {
-		log.Println("image not changed")
+		d.SetId(ref)
 	}
 	return nil
 }
