@@ -27,8 +27,7 @@ import (
 )
 
 const (
-	defaultBaseImage = "cgr.dev/chainguard/static"
-	version          = "devel"
+	version = "devel"
 )
 
 var validTypes = map[string]struct{}{
@@ -76,7 +75,7 @@ func resourceBuild() *schema.Resource {
 			},
 			BaseImageKey: {
 				Description: "base image to use",
-				Default:     defaultBaseImage,
+				Default:     "",
 				Optional:    true,
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
@@ -271,11 +270,18 @@ func fromData(d *schema.ResourceData, po *Opts) buildOptions {
 		workingDir: d.Get("working_dir").(string),
 		imageRepo:  repo,
 		platforms:  toStringSlice(d.Get("platforms").([]interface{})),
-		baseImage:  d.Get("base_image").(string),
+		baseImage:  getString(d, BaseImageKey, po.bo.BaseImage),
 		sbom:       d.Get("sbom").(string),
 		auth:       po.auth,
 		bare:       bare,
 	}
+}
+
+func getString(d *schema.ResourceData, key string, defaultVal string) string {
+	if v, ok := d.Get(key).(string); ok && v != "" {
+		return v
+	}
+	return defaultVal
 }
 
 func toStringSlice(in []interface{}) []string {

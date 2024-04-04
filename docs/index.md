@@ -23,6 +23,7 @@ provider "ko" {
 
 ### Optional
 
+- `base_image` (String) Default base image for builds
 - `basic_auth` (String) Basic auth to use to authorize requests
 - `docker_repo` (String) [DEPRECATED: use `repo`] Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var
 - `repo` (String) Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var
