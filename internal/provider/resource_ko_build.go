@@ -27,7 +27,8 @@ import (
 )
 
 const (
-	version = "devel"
+	version   = "devel"
+	userAgent = "terraform-provider-ko"
 )
 
 var validTypes = map[string]struct{}{
@@ -151,7 +152,10 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 			if o.auth != nil {
 				kc = authn.NewMultiKeychain(staticKeychain{o.imageRepo, o.auth}, kc)
 			}
-			desc, err := remote.Get(ref, remote.WithAuthFromKeychain(kc))
+			desc, err := remote.Get(ref,
+				remote.WithAuthFromKeychain(kc),
+				remote.WithUserAgent(userAgent),
+			)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -241,7 +245,11 @@ func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, 
 	if opts.auth != nil {
 		kc = authn.NewMultiKeychain(staticKeychain{opts.imageRepo, opts.auth}, kc)
 	}
-	po := []publish.Option{publish.WithAuthFromKeychain(kc), publish.WithNamer(namer(opts))}
+	po := []publish.Option{
+		publish.WithAuthFromKeychain(kc),
+		publish.WithNamer(namer(opts)),
+		publish.WithUserAgent(userAgent),
+	}
 
 	p, err := publish.NewDefault(opts.imageRepo, po...)
 	if err != nil {
