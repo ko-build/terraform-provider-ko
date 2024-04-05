@@ -27,13 +27,8 @@ import (
 )
 
 const (
-<<<<<<< Updated upstream
-	version = "devel"
-=======
-	defaultBaseImage = "cgr.dev/chainguard/static"
-	version          = "devel"
-	userAgent        = "terraform-provider-ko"
->>>>>>> Stashed changes
+	version   = "devel"
+	userAgent = "terraform-provider-ko"
 )
 
 var validTypes = map[string]struct{}{
