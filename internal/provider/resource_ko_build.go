@@ -107,6 +107,13 @@ func resourceBuild() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
+			LdflagsKey: {
+				Description: "Extra ldflags to pass to the go build",
+				Optional:    true,
+				Type:        schema.TypeList,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
 		},
 	}
 }
@@ -119,7 +126,8 @@ type buildOptions struct {
 	baseImage  string
 	sbom       string
 	auth       *authn.Basic
-	bare       bool // If true, use the "bare" namer that doesn't append the importpath.
+	bare       bool     // If true, use the "bare" namer that doesn't append the importpath.
+	ldflags    []string // Extra ldflags to pass to the go build.
 }
 
 var (
@@ -171,6 +179,12 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 			}
 			return nil, nil, fmt.Errorf("unexpected base image media type: %s", desc.MediaType)
 		}),
+	}
+	if len(o.ldflags) > 0 {
+		bo = append(bo, build.WithConfig(map[string]build.Config{
+			o.ip: {
+				Ldflags: o.ldflags,
+			}}))
 	}
 	switch o.sbom {
 	case "spdx":
@@ -277,11 +291,12 @@ func fromData(d *schema.ResourceData, po *Opts) buildOptions {
 		ip:         d.Get("importpath").(string),
 		workingDir: d.Get("working_dir").(string),
 		imageRepo:  repo,
-		platforms:  toStringSlice(d.Get("platforms").([]interface{})),
+		platforms:  defaultPlatform(toStringSlice(d.Get("platforms").([]interface{}))),
 		baseImage:  getString(d, BaseImageKey, po.bo.BaseImage),
 		sbom:       d.Get("sbom").(string),
 		auth:       po.auth,
 		bare:       bare,
+		ldflags:    toStringSlice(d.Get("ldflags").([]interface{})),
 	}
 }
 
@@ -292,11 +307,14 @@ func getString(d *schema.ResourceData, key string, defaultVal string) string {
 	return defaultVal
 }
 
-func toStringSlice(in []interface{}) []string {
+func defaultPlatform(in []string) []string {
 	if len(in) == 0 {
 		return []string{"linux/amd64"}
 	}
+	return in
+}
 
+func toStringSlice(in []interface{}) []string {
 	out := make([]string, len(in))
 	for i, ii := range in {
 		if s, ok := ii.(string); ok {

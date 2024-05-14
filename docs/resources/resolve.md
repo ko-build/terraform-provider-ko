@@ -41,6 +41,7 @@ output "manifests" {
 ### Optional
 
 - `base_image` (String)
+- `ldflags` (List of String) Extra ldflags to pass to the go build
 - `platforms` (List of String) Which platform to use when pulling a multi-platform base. Format: all | <os>[/<arch>[/<variant>]][,platform]*
 - `push` (Boolean) Push images to KO_DOCKER_REPO
 - `recursive` (Boolean) Process the directory used in -f, --filename recursively. Useful when you want to manage related manifests organized within the same directory.

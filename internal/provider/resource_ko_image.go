@@ -104,6 +104,13 @@ func resourceImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
+			LdflagsKey: {
+				Description: "Extra ldflags to pass to the go build",
+				Optional:    true,
+				Type:        schema.TypeList,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
 		},
 	}
 }
