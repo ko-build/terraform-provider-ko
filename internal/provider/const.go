@@ -33,6 +33,8 @@ const (
 	ManifestsKey = "manifests"
 	// RepoKey is used for common "repo" resource attribute
 	RepoKey = "repo"
+	// Ldflags is used for common "ldflags" resource attribute
+	LdflagsKey = "ldflags"
 )
 
 func StringSlice(in []interface{}) []string {

@@ -104,6 +104,7 @@ func TestAccResourceKoBuild(t *testing.T) {
 			resource "ko_build" "foo" {
 			  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 			  platforms = ["all"]
+			  ldflags = ["-s", "-w"]
 			}
 			`,
 			Check: resource.ComposeTestCheckFunc(
@@ -209,6 +210,7 @@ func TestAccResourceKoBuild_ProviderRepo(t *testing.T) {
 			Config: `
 		resource "ko_build" "foo" {
 			importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
+            ldflags = ["-s", "-w"]
 		}
 		`,
 			Check: resource.ComposeTestCheckFunc(
