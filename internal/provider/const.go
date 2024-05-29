@@ -35,6 +35,8 @@ const (
 	RepoKey = "repo"
 	// Ldflags is used for common "ldflags" resource attribute
 	LdflagsKey = "ldflags"
+	// EnvKey is used for common "env" resource attribute
+	EnvKey = "env"
 )
 
 func StringSlice(in []interface{}) []string {

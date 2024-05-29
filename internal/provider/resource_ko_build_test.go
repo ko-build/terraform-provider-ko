@@ -113,6 +113,22 @@ func TestAccResourceKoBuild(t *testing.T) {
 		}},
 	})
 
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{{
+			Config: `
+			resource "ko_build" "foo" {
+			  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test-cgo"
+			  env     = ["CGO_ENABLED=1"]
+			}
+			`,
+			Check: resource.ComposeTestCheckFunc(
+				resource.TestMatchResourceAttr("ko_build.foo", "image_ref",
+					regexp.MustCompile("^"+url+"/github.com/ko-build/terraform-provider-ko/cmd/test-cgo@sha256:")),
+			),
+		}},
+	})
+
 	for _, sbom := range []string{"spdx", "cyclonedx", "go.version-m", "none"} {
 		resource.Test(t, resource.TestCase{
 			ProviderFactories: providerFactories,
