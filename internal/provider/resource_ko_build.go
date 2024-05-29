@@ -114,6 +114,13 @@ func resourceBuild() *schema.Resource {
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
+			EnvKey: {
+				Description: "Extra environment variables to pass to the go build",
+				Optional:    true,
+				Type:        schema.TypeList,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
 		},
 	}
 }
@@ -128,6 +135,7 @@ type buildOptions struct {
 	auth       *authn.Basic
 	bare       bool     // If true, use the "bare" namer that doesn't append the importpath.
 	ldflags    []string // Extra ldflags to pass to the go build.
+	env        []string // Extra environment variables to pass to the go build.
 }
 
 var (
@@ -146,6 +154,11 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 	bo := []build.Option{
 		build.WithTrimpath(true),
 		build.WithPlatforms(o.platforms...),
+		build.WithConfig(map[string]build.Config{
+			o.ip: {
+				Ldflags: o.ldflags,
+				Env:     o.env,
+			}}),
 		build.WithBaseImages(func(_ context.Context, _ string) (name.Reference, build.Result, error) {
 			ref, err := name.ParseReference(o.baseImage)
 			if err != nil {
@@ -180,12 +193,7 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 			return nil, nil, fmt.Errorf("unexpected base image media type: %s", desc.MediaType)
 		}),
 	}
-	if len(o.ldflags) > 0 {
-		bo = append(bo, build.WithConfig(map[string]build.Config{
-			o.ip: {
-				Ldflags: o.ldflags,
-			}}))
-	}
+
 	switch o.sbom {
 	case "spdx":
 		bo = append(bo, build.WithSPDX(version))
@@ -297,6 +305,7 @@ func fromData(d *schema.ResourceData, po *Opts) buildOptions {
 		auth:       po.auth,
 		bare:       bare,
 		ldflags:    toStringSlice(d.Get("ldflags").([]interface{})),
+		env:        toStringSlice(d.Get("env").([]interface{})),
 	}
 }
 
