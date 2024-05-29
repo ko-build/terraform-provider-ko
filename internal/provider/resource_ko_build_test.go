@@ -123,7 +123,8 @@ func TestAccResourceKoBuild(t *testing.T) {
 			}
 			`,
 			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
+				resource.TestMatchResourceAttr("ko_build.foo", "image_ref",
+				regexp.MustCompile("^" + url + "/github.com/ko-build/terraform-provider-ko/cmd/test-cgo@sha256:")),
 			),
 		}},
 	})
