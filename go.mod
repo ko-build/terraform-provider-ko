@@ -1,6 +1,6 @@
 module github.com/ko-build/terraform-provider-ko
 
-go 1.22
+go 1.22.3
 
 require (
 	github.com/aws/aws-lambda-go v1.47.0
