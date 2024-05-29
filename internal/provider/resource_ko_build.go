@@ -96,7 +96,7 @@ func resourceBuild() *schema.Resource {
 				},
 			},
 			RepoKey: {
-				Description: "Container repository to publish images to. If set, this overrides the provider's docker_repo, and the image name will be exactly the specified `repo`, without the importpath appended.",
+				Description: "Container repository to publish images to. If set, this overrides the provider's `repo`, and the image name will be exactly the specified `repo`, without the importpath appended.",
 				Default:     "",
 				Optional:    true,
 				Type:        schema.TypeString,
@@ -231,7 +231,7 @@ var baseImages sync.Map // Cache of base image lookups.
 // doBuild doesn't publish images, use doPublish to publish the build.Result that doBuild returns.
 func doBuild(ctx context.Context, opts buildOptions) (build.Result, string, error) {
 	if opts.imageRepo == "" {
-		return nil, "", errors.New("one of KO_DOCKER_REPO env var, or provider `docker_repo` or `repo`, or image resource `repo` must be set")
+		return nil, "", errors.New("one of KO_DOCKER_REPO env var, or provider `repo`, or image resource `repo` must be set")
 	}
 
 	b, err := opts.makeBuilder(ctx)

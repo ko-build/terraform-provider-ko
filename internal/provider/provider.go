@@ -31,12 +31,6 @@ func New(version string) func() *schema.Provider {
 	return func() *schema.Provider {
 		p := &schema.Provider{
 			Schema: map[string]*schema.Schema{
-				"docker_repo": {
-					Description: "[DEPRECATED: use `repo`] Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var",
-					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("KO_DOCKER_REPO", ""),
-					Type:        schema.TypeString,
-				},
 				"repo": {
 					Description: "Container repository to publish images to. Defaults to `KO_DOCKER_REPO` env var",
 					Optional:    true,
@@ -75,12 +69,6 @@ func configure(version string, p *schema.Provider) func(context.Context, *schema
 		koDockerRepo, ok := s.Get("repo").(string)
 		if !ok {
 			return nil, diag.Errorf("expected repo to be string")
-		}
-		if koDockerRepo == "" {
-			koDockerRepo, ok = s.Get("docker_repo").(string)
-			if !ok {
-				return nil, diag.Errorf("expected docker_repo to be string")
-			}
 		}
 
 		baseImage, ok := s.Get(BaseImageKey).(string)

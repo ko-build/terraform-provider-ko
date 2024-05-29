@@ -16,7 +16,7 @@ provider "aws" {
 
 provider "ko" {
   // This is added as a check that `repo` works below, it should never be used.
-  docker_repo = "example.com"
+  repo = "example.com"
 }
 
 resource "aws_ecr_repository" "foo" {
@@ -58,15 +58,15 @@ resource "aws_ecr_repository_policy" "lightsail_ecr_download" {
   repository = aws_ecr_repository.foo.name
 
   policy = jsonencode({
-    "Version": "2012-10-17",
-    "Statement": [
+    "Version" : "2012-10-17",
+    "Statement" : [
       {
-        "Sid": "AllowLightsailPull",
-        "Effect": "Allow",
-        "Principal": {
-          "AWS": "${aws_lightsail_container_service.example.private_registry_access[0].ecr_image_puller_role[0].principal_arn}"
+        "Sid" : "AllowLightsailPull",
+        "Effect" : "Allow",
+        "Principal" : {
+          "AWS" : "${aws_lightsail_container_service.example.private_registry_access[0].ecr_image_puller_role[0].principal_arn}"
         },
-        "Action": [
+        "Action" : [
           "ecr:BatchGetImage",
           "ecr:GetDownloadUrlForLayer"
         ]

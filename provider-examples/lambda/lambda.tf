@@ -16,7 +16,7 @@ provider "aws" {
 
 provider "ko" {
   // This is added as a check that `repo` works below, it should never be used.
-  docker_repo = "example.com"
+  repo = "example.com"
 }
 
 resource "aws_ecr_repository" "foo" {
