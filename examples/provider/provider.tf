@@ -1,3 +1,3 @@
 provider "ko" {
-  docker_repo = "ttl.sh/foo"
+  repo = "ttl.sh/foo"
 }

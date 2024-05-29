@@ -16,7 +16,7 @@ provider "aws" {
 
 provider "ko" {
   // This is added as a check that `repo` works below, it should never be used.
-  docker_repo = "example.com"
+  repo = "example.com"
 }
 
 resource "aws_ecr_repository" "foo" {
@@ -42,33 +42,33 @@ resource "aws_iam_role" "apprunner_access_role" {
   name = "apprunner_access_role"
 
   assume_role_policy = jsonencode({
-    "Version": "2012-10-17",
-    "Statement": [
+    "Version" : "2012-10-17",
+    "Statement" : [
       {
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "build.apprunner.amazonaws.com"
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : "build.apprunner.amazonaws.com"
         },
-        "Action": "sts:AssumeRole"
+        "Action" : "sts:AssumeRole"
       }
     ]
   })
 
   inline_policy {
-    name   = "can-pull-ecr"
+    name = "can-pull-ecr"
     policy = jsonencode({
-      "Version": "2012-10-17",
-      "Statement": [
+      "Version" : "2012-10-17",
+      "Statement" : [
         {
-          "Action": [
+          "Action" : [
             "ecr:GetDownloadUrlForLayer",
             "ecr:BatchGetImage",
             "ecr:DescribeImages",
             "ecr:GetAuthorizationToken",
             "ecr:BatchCheckLayerAvailability",
           ],
-          "Resource": "*",
-          "Effect": "Allow"
+          "Resource" : "*",
+          "Effect" : "Allow"
         }
       ]
     })

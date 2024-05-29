@@ -20,7 +20,7 @@ provider "aws" {
 
 provider "ko" {
   // This is added as a check that `repo` works below, it should never be used.
-  docker_repo = "example.com"
+  repo = "example.com"
 }
 
 resource "aws_ecr_repository" "foo" {
@@ -46,20 +46,20 @@ resource "aws_iam_role" "example" {
   name = "terraform-ecs-ko"
 
   assume_role_policy = jsonencode({
-    "Version": "2012-10-17",
-    "Statement": [
+    "Version" : "2012-10-17",
+    "Statement" : [
       {
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "ecs.amazonaws.com"
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : "ecs.amazonaws.com"
         },
-        "Action": "sts:AssumeRole"
-      },{
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "ecs-tasks.amazonaws.com"
+        "Action" : "sts:AssumeRole"
+        }, {
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : "ecs-tasks.amazonaws.com"
         },
-        "Action": "sts:AssumeRole"
+        "Action" : "sts:AssumeRole"
       }
     ]
   })
@@ -87,7 +87,7 @@ resource "aws_ecs_service" "foo" {
   }
   network_configuration {
     assign_public_ip = true
-    subnets = [var.subnet]
+    subnets          = [var.subnet]
   }
 }
 
@@ -98,19 +98,19 @@ resource "aws_ecs_task_definition" "foo" {
   execution_role_arn       = aws_iam_role.example.arn
   cpu                      = 1024
   memory                   = 2048
-  container_definitions    = jsonencode([
+  container_definitions = jsonencode([
     {
-      "name": "foo",
-      "image": ko_build.image.image_ref,
-      "cpu": 1024,
-      "memory": 2048,
-      "essential": true
+      "name" : "foo",
+      "image" : ko_build.image.image_ref,
+      "cpu" : 1024,
+      "memory" : 2048,
+      "essential" : true
     }
   ])
 }
 
 resource "aws_ecs_cluster_capacity_providers" "cluster" {
-  cluster_name = aws_ecs_cluster.cluster.name
+  cluster_name       = aws_ecs_cluster.cluster.name
   capacity_providers = ["FARGATE"]
   default_capacity_provider_strategy {
     base              = 1
