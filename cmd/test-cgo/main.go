@@ -1,5 +1,5 @@
 package main
 
-import _ "C"
+import "C"
 
 func main() {}
