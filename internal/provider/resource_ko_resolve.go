@@ -19,7 +19,8 @@ import (
 
 func resolveConfig() *schema.Resource {
 	return &schema.Resource{
-		Description: "",
+		Description:        "Deprecated",
+		DeprecationMessage: "Deprecated",
 
 		CreateContext: resourceKoResolveCreate,
 		ReadContext:   resourceKoResolveRead,
