@@ -355,31 +355,32 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 	return nil
 }
 
+const zeroRef = "example.com/zero@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
 func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	po, err := NewProviderOpts(meta)
 	if err != nil {
 		return diag.Errorf("configuring provider: %v", err)
 	}
 
+	var diags diag.Diagnostics
 	_, ref, err := doBuild(ctx, fromData(d, po))
 	if err != nil {
-		// Check for conditions that might indicate that the underlying module has been deleted.
-		// This is not an exhaustive list, but is a best effort check to see if the build failed because a deletion.
-		// See https://www.hashicorp.com/blog/writing-custom-terraform-providers#implementing-read for more details.
-		if errors.Is(err, os.ErrNotExist) {
-			d.SetId("")
-			return nil
-		}
-		return diag.Errorf("[id=%s] read doBuild: %v", d.Id(), err)
+		ref = zeroRef
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Warning,
+			Summary:  "Image build failed to read -- create may fail.",
+			Detail:   fmt.Sprintf("failed to read image: %v", err),
+		})
 	}
 
 	_ = d.Set("image_ref", ref)
-	if ref != d.Id() {
+	if ref != d.Id() || ref == zeroRef {
 		d.SetId("") // triggers create on next apply.
 	} else {
 		d.SetId(ref)
 	}
-	return nil
+	return diags
 }
 
 func resourceKoBuildDelete(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics {
