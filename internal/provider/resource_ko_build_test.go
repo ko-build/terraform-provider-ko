@@ -117,11 +117,11 @@ func TestAccResourceKoBuild(t *testing.T) {
 		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{{
 			Config: `
-			resource "ko_build" "foo" {
-			  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test-cgo"
-			  env     = ["CGO_ENABLED=1"]
-			}
-			`,
+				resource "ko_build" "foo" {
+				  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test-cgo"
+				  env     = ["CGO_ENABLED=1"]
+				}
+				`,
 			Check: resource.ComposeTestCheckFunc(
 				resource.TestMatchResourceAttr("ko_build.foo", "image_ref",
 					regexp.MustCompile("^"+url+"/github.com/ko-build/terraform-provider-ko/cmd/test-cgo@sha256:")),
@@ -169,6 +169,27 @@ func TestAccResourceKoBuild(t *testing.T) {
 					importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 				}`,
 				ExpectError: regexp.MustCompile("should be the number of seconds since"),
+			}},
+		})
+	})
+
+	t.Run("build fails during plan", func(t *testing.T) {
+		res := `resource "ko_build" "foo" { importpath = "github.com/ko-build/terraform-provider-ko/cmd/not-found" }`
+
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: providerFactories,
+			Steps: []resource.TestStep{{
+				// A failed build during plan should still show a diff, which will fail at create time.
+				// This enables cases where an importpath changes, where the previous state is now invalid
+				// and the ko build will fail; this should not block the create though, which should
+				// succeed and update the state.
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+				Config:             res,
+			}, {
+				// The same failed build during create should fail with an error.
+				Config:      res,
+				ExpectError: regexp.MustCompile(".*create doBuild.*no required module provides package.*"),
 			}},
 		})
 	})
