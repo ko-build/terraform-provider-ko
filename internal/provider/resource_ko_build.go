@@ -119,21 +119,29 @@ func resourceBuild() *schema.Resource {
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
+			"enable_debugger": {
+				Description: "Enable a debugger in the built image",
+				Optional:    true,
+				Type:        schema.TypeBool,
+				Default:     false,
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
 		},
 	}
 }
 
 type buildOptions struct {
-	ip         string
-	workingDir string
-	imageRepo  string // The image's repo, either from the KO_DOCKER_REPO env var, or provider-configured dockerRepo/repo, or image resource's repo.
-	platforms  []string
-	baseImage  string
-	sbom       string
-	auth       *authn.Basic
-	bare       bool     // If true, use the "bare" namer that doesn't append the importpath.
-	ldflags    []string // Extra ldflags to pass to the go build.
-	env        []string // Extra environment variables to pass to the go build.
+	ip             string
+	workingDir     string
+	imageRepo      string // The image's repo, either from the KO_DOCKER_REPO env var, or provider-configured dockerRepo/repo, or image resource's repo.
+	platforms      []string
+	baseImage      string
+	sbom           string
+	auth           *authn.Basic
+	bare           bool     // If true, use the "bare" namer that doesn't append the importpath.
+	ldflags        []string // Extra ldflags to pass to the go build.
+	env            []string // Extra environment variables to pass to the go build.
+	enableDebugger bool
 }
 
 var (
@@ -151,6 +159,7 @@ var (
 func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) {
 	bo := []build.Option{
 		build.WithTrimpath(true),
+		// TODO build.WithDebugger(o.enableDebugger),
 		build.WithPlatforms(o.platforms...),
 		build.WithConfig(map[string]build.Config{
 			o.ip: {
@@ -290,16 +299,17 @@ func fromData(d *schema.ResourceData, po *Opts) buildOptions {
 	}
 
 	return buildOptions{
-		ip:         d.Get("importpath").(string),
-		workingDir: d.Get("working_dir").(string),
-		imageRepo:  repo,
-		platforms:  defaultPlatform(toStringSlice(d.Get("platforms").([]interface{}))),
-		baseImage:  getString(d, "base_image", po.bo.BaseImage),
-		sbom:       d.Get("sbom").(string),
-		auth:       po.auth,
-		bare:       bare,
-		ldflags:    toStringSlice(d.Get("ldflags").([]interface{})),
-		env:        toStringSlice(d.Get("env").([]interface{})),
+		ip:             d.Get("importpath").(string),
+		workingDir:     d.Get("working_dir").(string),
+		imageRepo:      repo,
+		platforms:      defaultPlatform(toStringSlice(d.Get("platforms").([]interface{}))),
+		baseImage:      getString(d, "base_image", po.bo.BaseImage),
+		sbom:           d.Get("sbom").(string),
+		auth:           po.auth,
+		bare:           bare,
+		ldflags:        toStringSlice(d.Get("ldflags").([]interface{})),
+		env:            toStringSlice(d.Get("env").([]interface{})),
+		enableDebugger: d.Get("enable_debugger").(bool),
 	}
 }
 

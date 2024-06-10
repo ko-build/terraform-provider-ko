@@ -22,6 +22,7 @@ Sample resource in the Terraform provider scaffolding.
 ### Optional
 
 - `base_image` (String) base image to use
+- `enable_debugger` (Boolean) Enable a debugger in the built image
 - `env` (List of String) Extra environment variables to pass to the go build
 - `ldflags` (List of String) Extra ldflags to pass to the go build
 - `platforms` (List of String) Which platform to use when pulling a multi-platform base. Format: all | <os>[/<arch>[/<variant>]][,platform]*
