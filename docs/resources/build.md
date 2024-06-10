@@ -26,7 +26,7 @@ Sample resource in the Terraform provider scaffolding.
 - `ldflags` (List of String) Extra ldflags to pass to the go build
 - `platforms` (List of String) Which platform to use when pulling a multi-platform base. Format: all | <os>[/<arch>[/<variant>]][,platform]*
 - `repo` (String) Container repository to publish images to. If set, this overrides the provider's `repo`, and the image name will be exactly the specified `repo`, without the importpath appended.
-- `sbom` (String) The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).
+- `sbom` (String) The SBOM media type to use (none will disable SBOM synthesis and upload).
 - `working_dir` (String) working directory for the build
 
 ### Read-Only

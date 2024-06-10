@@ -32,10 +32,8 @@ const (
 )
 
 var validTypes = map[string]struct{}{
-	"spdx":         {},
-	"cyclonedx":    {},
-	"go.version-m": {},
-	"none":         {},
+	"spdx": {},
+	"none": {},
 }
 
 func resourceBuild() *schema.Resource {
@@ -50,7 +48,7 @@ func resourceBuild() *schema.Resource {
 		SchemaVersion: 1,
 
 		Schema: map[string]*schema.Schema{
-			ImportPathKey: {
+			"importpath": {
 				Description: "import path to build",
 				Type:        schema.TypeString,
 				Required:    true,
@@ -60,29 +58,29 @@ func resourceBuild() *schema.Resource {
 				},
 				ForceNew: true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			WorkingDirKey: {
+			"working_dir": {
 				Description: "working directory for the build",
 				Optional:    true,
 				Default:     ".",
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			PlatformsKey: {
+			"platforms": {
 				Description: "Which platform to use when pulling a multi-platform base. Format: all | <os>[/<arch>[/<variant>]][,platform]*",
 				Optional:    true,
 				Type:        schema.TypeList,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			BaseImageKey: {
+			"base_image": {
 				Description: "base image to use",
 				Default:     "",
 				Optional:    true,
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			SBOMKey: {
-				Description: "The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).",
+			"sbom": {
+				Description: "The SBOM media type to use (none will disable SBOM synthesis and upload).",
 				Default:     "spdx",
 				Optional:    true,
 				Type:        schema.TypeString,
@@ -95,26 +93,26 @@ func resourceBuild() *schema.Resource {
 					return nil
 				},
 			},
-			RepoKey: {
+			"repo": {
 				Description: "Container repository to publish images to. If set, this overrides the provider's `repo`, and the image name will be exactly the specified `repo`, without the importpath appended.",
 				Default:     "",
 				Optional:    true,
 				Type:        schema.TypeString,
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			ImageRefKey: {
+			"image_ref": {
 				Description: "built image reference by digest",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			LdflagsKey: {
+			"ldflags": {
 				Description: "Extra ldflags to pass to the go build",
 				Optional:    true,
 				Type:        schema.TypeList,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
-			EnvKey: {
+			"env": {
 				Description: "Extra environment variables to pass to the go build",
 				Optional:    true,
 				Type:        schema.TypeList,
@@ -197,10 +195,6 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 	switch o.sbom {
 	case "spdx":
 		bo = append(bo, build.WithSPDX(version))
-	case "cyclonedx":
-		bo = append(bo, build.WithCycloneDX())
-	case "go.version-m":
-		bo = append(bo, build.WithGoVersionSBOM())
 	case "none":
 		bo = append(bo, build.WithDisabledSBOM())
 	default:
@@ -290,7 +284,7 @@ func fromData(d *schema.ResourceData, po *Opts) buildOptions {
 	// If the ko_build resource configured the repo, use bare image naming.
 	repo := po.po.DockerRepo
 	bare := false
-	if r := d.Get(RepoKey).(string); r != "" {
+	if r := d.Get("repo").(string); r != "" {
 		repo = r
 		bare = true
 	}
@@ -300,7 +294,7 @@ func fromData(d *schema.ResourceData, po *Opts) buildOptions {
 		workingDir: d.Get("working_dir").(string),
 		imageRepo:  repo,
 		platforms:  defaultPlatform(toStringSlice(d.Get("platforms").([]interface{}))),
-		baseImage:  getString(d, BaseImageKey, po.bo.BaseImage),
+		baseImage:  getString(d, "base_image", po.bo.BaseImage),
 		sbom:       d.Get("sbom").(string),
 		auth:       po.auth,
 		bare:       bare,

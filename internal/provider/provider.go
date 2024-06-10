@@ -43,7 +43,7 @@ func New(version string) func() *schema.Provider {
 					Default:     "",
 					Type:        schema.TypeString,
 				},
-				BaseImageKey: {
+				"base_image": {
 					Description: "Default base image for builds",
 					Optional:    true,
 					Default:     "",
@@ -51,8 +51,7 @@ func New(version string) func() *schema.Provider {
 				},
 			},
 			ResourcesMap: map[string]*schema.Resource{
-				"ko_build":   resourceBuild(),
-				"ko_resolve": resolveConfig(),
+				"ko_build": resourceBuild(),
 			},
 		}
 
@@ -71,7 +70,7 @@ func configure(version string, p *schema.Provider) func(context.Context, *schema
 			return nil, diag.Errorf("expected repo to be string")
 		}
 
-		baseImage, ok := s.Get(BaseImageKey).(string)
+		baseImage, ok := s.Get("base_image").(string)
 		if !ok {
 			return nil, diag.Errorf("expected base_image to be string")
 		}
