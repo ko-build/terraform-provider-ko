@@ -32,10 +32,8 @@ const (
 )
 
 var validTypes = map[string]struct{}{
-	"spdx":         {},
-	"cyclonedx":    {},
-	"go.version-m": {},
-	"none":         {},
+	"spdx": {},
+	"none": {},
 }
 
 func resourceBuild() *schema.Resource {
@@ -82,7 +80,7 @@ func resourceBuild() *schema.Resource {
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
 			SBOMKey: {
-				Description: "The SBOM media type to use (none will disable SBOM synthesis and upload, also supports: spdx, cyclonedx, go.version-m).",
+				Description: "The SBOM media type to use (none will disable SBOM synthesis and upload).",
 				Default:     "spdx",
 				Optional:    true,
 				Type:        schema.TypeString,
@@ -197,10 +195,6 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 	switch o.sbom {
 	case "spdx":
 		bo = append(bo, build.WithSPDX(version))
-	case "cyclonedx":
-		bo = append(bo, build.WithCycloneDX())
-	case "go.version-m":
-		bo = append(bo, build.WithGoVersionSBOM())
 	case "none":
 		bo = append(bo, build.WithDisabledSBOM())
 	default:

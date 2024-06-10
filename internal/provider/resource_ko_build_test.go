@@ -129,7 +129,7 @@ func TestAccResourceKoBuild(t *testing.T) {
 		}},
 	})
 
-	for _, sbom := range []string{"spdx", "cyclonedx", "go.version-m", "none"} {
+	for _, sbom := range []string{"spdx", "none"} {
 		resource.Test(t, resource.TestCase{
 			ProviderFactories: providerFactories,
 			Steps: []resource.TestStep{{

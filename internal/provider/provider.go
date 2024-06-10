@@ -51,8 +51,7 @@ func New(version string) func() *schema.Provider {
 				},
 			},
 			ResourcesMap: map[string]*schema.Resource{
-				"ko_build":   resourceBuild(),
-				"ko_resolve": resolveConfig(),
+				"ko_build": resourceBuild(),
 			},
 		}
 
