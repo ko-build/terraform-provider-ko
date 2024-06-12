@@ -159,7 +159,6 @@ var (
 func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) {
 	bo := []build.Option{
 		build.WithTrimpath(true),
-		build.WithDebugger(o.enableDebugger),
 		build.WithPlatforms(o.platforms...),
 		build.WithConfig(map[string]build.Config{
 			o.ip: {
@@ -199,6 +198,10 @@ func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) 
 			}
 			return nil, nil, fmt.Errorf("unexpected base image media type: %s", desc.MediaType)
 		}),
+	}
+
+	if o.enableDebugger {
+		bo = append(bo, build.WithDebugger())
 	}
 
 	switch o.sbom {
