@@ -159,7 +159,7 @@ var (
 func (o *buildOptions) makeBuilder(ctx context.Context) (*build.Caching, error) {
 	bo := []build.Option{
 		build.WithTrimpath(true),
-		// TODO build.WithDebugger(o.enableDebugger),
+		build.WithDebugger(o.enableDebugger),
 		build.WithPlatforms(o.platforms...),
 		build.WithConfig(map[string]build.Config{
 			o.ip: {

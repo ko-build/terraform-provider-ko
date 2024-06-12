@@ -63,7 +63,7 @@ func TestAccResourceKoBuild(t *testing.T) {
 		}},
 	})
 
-	// Test that working_dir can be set.
+	// Test that working_dir and debug can be set.
 	// TODO: Setting the importpath as "." means the image gets pushed as $KO_DOCKER_REPO exactly,
 	// and we probably want to expand this to be the full resolved importpath of the package.
 	resource.Test(t, resource.TestCase{
@@ -71,8 +71,9 @@ func TestAccResourceKoBuild(t *testing.T) {
 		Steps: []resource.TestStep{{
 			Config: `
 			resource "ko_build" "foo" {
-			  importpath = "."
+			  importpath  = "."
 			  working_dir = "../../cmd/test"
+			  debug       = true
 			}
 			`,
 			Check: resource.ComposeTestCheckFunc(
