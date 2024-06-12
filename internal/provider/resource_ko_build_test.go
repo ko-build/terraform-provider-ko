@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -31,9 +32,7 @@ func TestAccResourceKoBuild(t *testing.T) {
 			  sbom = "spdx"
 			}
 			`,
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
-			),
+			Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
 		}},
 		// TODO: add a test that there's no terraform diff if the image hasn't changed.
 		// TODO: add a test that there's a terraform diff if the image has changed.
@@ -63,23 +62,33 @@ func TestAccResourceKoBuild(t *testing.T) {
 		}},
 	})
 
-	// Test that working_dir and debug can be set.
+	// Test that working_dir can be set.
 	// TODO: Setting the importpath as "." means the image gets pushed as $KO_DOCKER_REPO exactly,
 	// and we probably want to expand this to be the full resolved importpath of the package.
 	resource.Test(t, resource.TestCase{
 		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{{
 			Config: `
-			resource "ko_build" "foo" {
-			  importpath  = "."
-			  working_dir = "../../cmd/test"
-			  debug       = true
+			resource "ko_build" "dir" {
+			  importpath      = "."
+			  working_dir     = "../../cmd/test"
 			}
 			`,
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", regexp.MustCompile("^"+url+"@sha256:")),
-				// TODO(jason): Check that top's base_image attr matches base's image_ref exactly.
-			),
+			Check: resource.TestMatchResourceAttr("ko_build.dir", "image_ref", regexp.MustCompile("^"+url+"@sha256:")),
+		}},
+	})
+
+	// Test that enable_debugger can be set.
+	resource.Test(t, resource.TestCase{
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{{
+			Config: `
+			resource "ko_build" "foo" {
+			  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
+			  enable_debugger = true
+			}
+			`,
+			Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
 		}},
 	})
 
@@ -92,9 +101,7 @@ func TestAccResourceKoBuild(t *testing.T) {
 			  platforms = ["linux/amd64", "linux/arm64"]
 			}
 			`,
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
-			),
+			Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
 		}},
 	})
 
@@ -108,27 +115,26 @@ func TestAccResourceKoBuild(t *testing.T) {
 			  ldflags = ["-s", "-w"]
 			}
 			`,
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
-			),
+			Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
 		}},
 	})
 
-	resource.Test(t, resource.TestCase{
-		ProviderFactories: providerFactories,
-		Steps: []resource.TestStep{{
-			Config: `
+	if runtime.GOOS != "darwin" {
+		resource.Test(t, resource.TestCase{
+			ProviderFactories: providerFactories,
+			Steps: []resource.TestStep{{
+				Config: `
 				resource "ko_build" "foo" {
 				  importpath = "github.com/ko-build/terraform-provider-ko/cmd/test-cgo"
 				  env     = ["CGO_ENABLED=1"]
 				}
 				`,
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref",
-					regexp.MustCompile("^"+url+"/github.com/ko-build/terraform-provider-ko/cmd/test-cgo@sha256:")),
-			),
-		}},
-	})
+				Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref",
+					regexp.MustCompile("^"+url+"/github.com/ko-build/terraform-provider-ko/cmd/test-cgo@sha256:"),
+				),
+			}},
+		})
+	}
 
 	for _, sbom := range []string{"spdx", "none"} {
 		resource.Test(t, resource.TestCase{
@@ -140,9 +146,7 @@ func TestAccResourceKoBuild(t *testing.T) {
 			  sbom = %q
 			}
 			`, sbom),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
-				),
+				Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
 			}},
 		})
 	}
@@ -155,9 +159,7 @@ func TestAccResourceKoBuild(t *testing.T) {
 				Config: `resource "ko_build" "foo" {
 					importpath = "github.com/ko-build/terraform-provider-ko/cmd/test"
 				}`,
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
-				),
+				Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
 			}},
 		})
 	})
@@ -216,9 +218,7 @@ func TestAccResourceKoBuild_ImageRepo(t *testing.T) {
 			repo = "%s/configured-in-resource"
 		}
 		`, url),
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", regexp.MustCompile("^"+url+"/configured-in-resource@sha256:")),
-			),
+			Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref", regexp.MustCompile("^"+url+"/configured-in-resource@sha256:")),
 		}},
 	})
 }
@@ -251,9 +251,8 @@ func TestAccResourceKoBuild_ProviderRepo(t *testing.T) {
             ldflags = ["-s", "-w"]
 		}
 		`,
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", regexp.MustCompile("^"+url+"/configured-in-provider/github.com/ko-build/terraform-provider-ko/cmd/test@sha256:")),
-			),
+			Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref",
+				regexp.MustCompile("^"+url+"/configured-in-provider/github.com/ko-build/terraform-provider-ko/cmd/test@sha256:")),
 		}},
 	})
 }
@@ -275,9 +274,8 @@ func TestAccResourceKoBuild_PlanNoPush(t *testing.T) {
 		`,
 			PlanOnly:           true, // Only plan, and expect a diff.
 			ExpectNonEmptyPlan: true,
-			Check: resource.ComposeTestCheckFunc(
-				resource.TestMatchResourceAttr("ko_build.foo", "image_ref", regexp.MustCompile("^localhost:12345/github.com/ko-build/terraform-provider-ko/cmd/test@sha256:")),
-			),
+			Check: resource.TestMatchResourceAttr("ko_build.foo", "image_ref",
+				regexp.MustCompile("^localhost:12345/github.com/ko-build/terraform-provider-ko/cmd/test@sha256:")),
 		}},
 	})
 }

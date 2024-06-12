@@ -53,9 +53,8 @@ func New(version string) func() *schema.Provider {
 			ResourcesMap: map[string]*schema.Resource{
 				"ko_build": resourceBuild(),
 			},
+			ConfigureContextFunc: configure(),
 		}
-
-		p.ConfigureContextFunc = configure(version, p)
 
 		return p
 	}
@@ -63,7 +62,7 @@ func New(version string) func() *schema.Provider {
 
 // configure initializes the global provider with sensible defaults (that mimic what ko does with cli/cobra defaults)
 // TODO: review input parameters
-func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) { //nolint: revive
+func configure() func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) { //nolint: revive
 	return func(_ context.Context, s *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		koDockerRepo, ok := s.Get("repo").(string)
 		if !ok {
