@@ -17,15 +17,6 @@ import (
 // can be customized.
 //go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
 
-var (
-	// these will be set by the goreleaser configuration
-	// to appropriate values for the compiled binary
-	version = "dev"
-
-	// goreleaser can also pass the specific commit if you want
-	// commit  string = ""
-)
-
 func main() {
 	var debugMode bool
 
@@ -35,7 +26,7 @@ func main() {
 	opts := &plugin.ServeOpts{
 		Debug:        debugMode,
 		ProviderAddr: "registry.terraform.io/ko-build/ko",
-		ProviderFunc: provider.New(version),
+		ProviderFunc: provider.New,
 	}
 
 	plugin.Serve(opts)
