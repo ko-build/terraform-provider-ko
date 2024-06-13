@@ -233,7 +233,7 @@ func TestAccResourceKoBuild_ProviderRepo(t *testing.T) {
 
 	var providerConfigured = map[string]func() (*schema.Provider, error){
 		"ko": func() (*schema.Provider, error) { //nolint: unparam
-			p := New("dev")()
+			p := New()
 			p.Schema["repo"].Default = url + "/configured-in-provider"
 			return p, nil
 		},
