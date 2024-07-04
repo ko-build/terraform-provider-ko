@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -193,6 +195,99 @@ func TestAccResourceKoBuild(t *testing.T) {
 			}},
 		})
 	})
+}
+
+func TestAccResourceKoBuild_Tags(t *testing.T) {
+	type testCase struct {
+		name            string
+		config          string
+		expectNamedTags []string
+	}
+
+	path := "github.com/ko-build/terraform-provider-ko/cmd/test"
+	testCases := []testCase{
+		{
+			name: "named_tags_foo_bar",
+			config: `
+				resource "ko_build" "foo" {
+					sbom       = "none"
+					importpath = "%s"
+					tags       = ["foo", "bar"]
+				}
+			`,
+			expectNamedTags: []string{"foo", "bar"},
+		},
+		{
+			name: "named_tags_v1.0.0_stable",
+			config: `
+				resource "ko_build" "foo" {
+					sbom       = "none"
+					importpath = "%s"
+					tags       = ["v1.0.0", "stable"]
+				}
+			`,
+			expectNamedTags: []string{"v1.0.0", "stable"},
+		},
+		{
+			name: "named_tags_multiple_including_latest",
+			config: `
+				resource "ko_build" "foo" {
+					sbom       = "none"
+					importpath = "%s"
+					tags       = ["v1.0.0", "stable", "latest", "production"]
+				}
+			`,
+			expectNamedTags: []string{"v1.0.0", "stable", "latest", "production"},
+		},
+		{
+			name: "named_tags_omit_default_latest",
+			config: `
+				resource "ko_build" "foo" {
+					sbom       = "none"
+					importpath = "%s"
+				}
+			`,
+			expectNamedTags: []string{"latest"},
+		},
+	}
+
+	var srv *httptest.Server
+	for _, tc := range testCases {
+		// Setup a local registry and have tests push to that.
+		srv = httptest.NewServer(registry.New())
+		parts := strings.Split(srv.URL, ":")
+		url := fmt.Sprintf("localhost:%s/test", parts[len(parts)-1])
+		t.Setenv("KO_DOCKER_REPO", url)
+
+		imageRefRE := regexp.MustCompile("^" + url + fmt.Sprintf("/%s@sha256:", path))
+
+		t.Run(tc.name, func(t *testing.T) {
+			resource.Test(t, resource.TestCase{
+				ProviderFactories: providerFactories,
+				Steps: []resource.TestStep{{
+					Config: fmt.Sprintf(tc.config, path),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestMatchResourceAttr("ko_build.foo", "image_ref", imageRefRE),
+					),
+				}},
+			})
+			tags, err := crane.ListTags(fmt.Sprintf("%s/%s", url, path),
+				crane.WithTransport(srv.Client().Transport))
+			if err != nil {
+				t.Fatalf("failed to list tags: %v", err)
+			}
+			if len(tags) != len(tc.expectNamedTags) {
+				t.Fatalf("expected %d tags, got %d", len(tc.expectNamedTags), len(tags))
+			}
+			slices.Sort(tc.expectNamedTags)
+			slices.Sort(tags)
+			if !slices.Equal(tc.expectNamedTags, tags) {
+				t.Fatalf("expected tags %v, got %v", tc.expectNamedTags, tags)
+			}
+		})
+
+		srv.Close()
+	}
 }
 
 func TestAccResourceKoBuild_ImageRepo(t *testing.T) {
