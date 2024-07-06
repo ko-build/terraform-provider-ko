@@ -119,6 +119,13 @@ func resourceBuild() *schema.Resource {
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
 			},
+			"tags": {
+				Description: "Which tags to use for the produced image instead of the default 'latest' tag",
+				Optional:    true,
+				Type:        schema.TypeList,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				ForceNew:    true, // Any time this changes, don't try to update in-place, just create it.
+			},
 		},
 	}
 }
@@ -134,6 +141,7 @@ type buildOptions struct {
 	bare       bool     // If true, use the "bare" namer that doesn't append the importpath.
 	ldflags    []string // Extra ldflags to pass to the go build.
 	env        []string // Extra environment variables to pass to the go build.
+	tags       []string // Which tags to use for the produced image instead of the default 'latest'
 }
 
 var (
@@ -253,6 +261,7 @@ func namer(opts buildOptions) publish.Namer {
 		DockerRepo:          opts.imageRepo,
 		Bare:                opts.bare,
 		PreserveImportPaths: !opts.bare,
+		Tags:                opts.tags,
 	})
 }
 
@@ -261,10 +270,15 @@ func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, 
 	if opts.auth != nil {
 		kc = authn.NewMultiKeychain(staticKeychain{opts.imageRepo, opts.auth}, kc)
 	}
+
 	po := []publish.Option{
 		publish.WithAuthFromKeychain(kc),
 		publish.WithNamer(namer(opts)),
 		publish.WithUserAgent(userAgent),
+	}
+
+	if opts.tags != nil && len(opts.tags) > 0 {
+		po = append(po, publish.WithTags(opts.tags))
 	}
 
 	p, err := publish.NewDefault(opts.imageRepo, po...)
@@ -300,6 +314,7 @@ func fromData(d *schema.ResourceData, po *Opts) buildOptions {
 		bare:       bare,
 		ldflags:    toStringSlice(d.Get("ldflags").([]interface{})),
 		env:        toStringSlice(d.Get("env").([]interface{})),
+		tags:       toStringSlice(d.Get("tags").([]interface{})),
 	}
 }
 
