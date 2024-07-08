@@ -199,8 +199,8 @@ github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/google/go-containerregistry v0.19.2 h1:TannFKE1QSajsP6hPWb5oJNgKe1IKjHukIKDUmvsV6w=
-github.com/google/go-containerregistry v0.19.2/go.mod h1:YCMFNQeeXeLF+dnhhWkqDItx/JSkH01j1Kis4PsjzFI=
+github.com/google/go-containerregistry v0.20.0 h1:wRqHpOeVh3DnenOrPy9xDOLdnLatiGuuNRVelR2gSbg=
+github.com/google/go-containerregistry v0.20.0/go.mod h1:YCMFNQeeXeLF+dnhhWkqDItx/JSkH01j1Kis4PsjzFI=
 github.com/google/ko v0.15.4 h1:0blRbIdPmSy6v4LvedGxbI/8krdJYQgbSih3v6Y8V1c=
 github.com/google/ko v0.15.4/go.mod h1:ZkcmfV91Xt6ZzOBHc/cXXGYnqWdNWDVy/gHoUU9sjag=
 github.com/google/safetext v0.0.0-20230106111101-7156a760e523 h1:i4NsbmB9pD5+Ggp5GZKyvYY6MkjvPE8CIMlkvXFF8gA=
