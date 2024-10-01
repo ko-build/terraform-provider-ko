@@ -16,7 +16,8 @@ jobs:
       - run: git fetch --prune --unshallow
       - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
-          go-version-file: 'go.mod'
+          go-version-file: './go.mod'
+          check-latest: true
           cache: true
 
       # This is provisioned here: https://github.com/chainguard-dev/secrets/blob/main/terraform-provider-ko.tf
