@@ -277,7 +277,7 @@ func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, 
 		publish.WithUserAgent(userAgent),
 	}
 
-	if opts.tags != nil && len(opts.tags) > 0 {
+	if len(opts.tags) > 0 {
 		po = append(po, publish.WithTags(opts.tags))
 	}
 
