@@ -7,6 +7,8 @@ To start, `terraform init` to install the necessary providers.
 Then `terraform apply` to build and deploy the example app to Cloud Run.
 You will be prompted for your GCP project.
 
+> Note: Cloud Run requires that images are pushed to Google Artifact Registry to be deployed to Cloud Run.
+
 When complete, your service will be named `tf-ko-example`.
 
 To clean up created resources, `terraform destroy`.
