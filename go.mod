@@ -8,7 +8,7 @@ require (
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/ko v0.17.1
-	github.com/hashicorp/go-cty v1.4.1
+	github.com/hashicorp/go-cty v1.5.0
 	github.com/hashicorp/terraform-plugin-docs v0.21.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.36.1
 )
