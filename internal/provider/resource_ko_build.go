@@ -231,7 +231,7 @@ var baseImages sync.Map // Cache of base image lookups.
 // doBuild builds the image and returns the built image, and the full name.Reference by digest that the image would be pushed to.
 //
 // doBuild doesn't publish images, use doPublish to publish the build.Result that doBuild returns.
-func doBuild(ctx context.Context, opts buildOptions) (build.Result, string, error) {
+func doBuild(ctx context.Context, opts buildOptions, includeTag bool) (build.Result, string, error) {
 	if opts.imageRepo == "" {
 		return nil, "", errors.New("one of KO_DOCKER_REPO env var, or provider `repo`, or image resource `repo` must be set")
 	}
@@ -251,6 +251,12 @@ func doBuild(ctx context.Context, opts buildOptions) (build.Result, string, erro
 	ref, err := name.ParseReference(namer(opts)(opts.imageRepo, opts.ip))
 	if err != nil {
 		return nil, "", fmt.Errorf("ParseReference: %w", err)
+	}
+
+	if includeTag && len(opts.tags) == 1 {
+		// Return the tagged reference with digest appended (same format as doPublish)
+		taggedRef := ref.Context().Tag(opts.tags[0])
+		return res, taggedRef.String() + "@" + dig.String(), nil
 	}
 
 	return res, ref.Context().Digest(dig.String()).String(), nil
@@ -350,7 +356,7 @@ func resourceKoBuildCreate(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("configuring provider: %v", err)
 	}
 
-	res, _, err := doBuild(ctx, fromData(d, po))
+	res, _, err := doBuild(ctx, fromData(d, po), false)
 	if err != nil {
 		return diag.Errorf("[id=%s] create doBuild: %v", d.Id(), err)
 	}
@@ -373,7 +379,7 @@ func resourceKoBuildRead(ctx context.Context, d *schema.ResourceData, meta inter
 	}
 
 	var diags diag.Diagnostics
-	_, ref, err := doBuild(ctx, fromData(d, po))
+	_, ref, err := doBuild(ctx, fromData(d, po), true)
 	if err != nil {
 		ref = zeroRef
 		diags = append(diags, diag.Diagnostic{
