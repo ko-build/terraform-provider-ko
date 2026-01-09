@@ -4,6 +4,8 @@ on:
     tags:
       - 'v*'
 
+permissions: {}
+
 jobs:
   goreleaser:
     permissions:
@@ -13,7 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
       - run: git fetch --prune --unshallow
+
       - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version-file: './go.mod'
@@ -26,9 +30,11 @@ jobs:
         with:
           workload_identity_provider: "projects/12758742386/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
           service_account: "terraform-provider-ko@chainguard-github-secrets.iam.gserviceaccount.com"
+
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           project_id: "chainguard-github-secrets"
+
       - uses: google-github-actions/get-secretmanager-secrets@bc9c54b29fdffb8a47776820a7d26e77b379d262 # v3.0.0
         id: secrets
         with:
