@@ -1,12 +1,16 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httputil"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,7 +26,9 @@ import (
 	"github.com/google/ko/pkg/commands/options"
 	"github.com/google/ko/pkg/publish"
 	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -244,6 +250,13 @@ var baseImages sync.Map // Cache of base image lookups.
 //
 // doBuild doesn't publish images, use doPublish to publish the build.Result that doBuild returns.
 func doBuild(ctx context.Context, opts buildOptions) (build.Result, string, error) {
+	tflog.Debug(ctx, "building image", map[string]interface{}{
+		"importpath": opts.ip,
+		"repo":       opts.imageRepo,
+		"platforms":  opts.platforms,
+		"base_image": opts.baseImage,
+	})
+
 	if opts.imageRepo == "" {
 		return nil, "", errors.New("one of KO_DOCKER_REPO env var, or provider `repo`, or image resource `repo` must be set")
 	}
@@ -254,6 +267,10 @@ func doBuild(ctx context.Context, opts buildOptions) (build.Result, string, erro
 	}
 	res, err := b.Build(ctx, opts.ip)
 	if err != nil {
+		tflog.Error(ctx, "build failed", map[string]interface{}{
+			"importpath": opts.ip,
+			"error":      err.Error(),
+		})
 		return nil, "", fmt.Errorf("build: %w", err)
 	}
 	dig, err := res.Digest()
@@ -264,6 +281,12 @@ func doBuild(ctx context.Context, opts buildOptions) (build.Result, string, erro
 	if err != nil {
 		return nil, "", fmt.Errorf("ParseReference: %w", err)
 	}
+
+	tflog.Debug(ctx, "built image", map[string]interface{}{
+		"importpath": opts.ip,
+		"digest":     dig.String(),
+		"ref":        ref.String(),
+	})
 
 	return res, ref.Context().Digest(dig.String()).String(), nil
 }
@@ -278,6 +301,12 @@ func namer(opts buildOptions) publish.Namer {
 }
 
 func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, error) {
+	tflog.Debug(ctx, "publishing image", map[string]interface{}{
+		"importpath": opts.ip,
+		"repo":       opts.imageRepo,
+		"tags":       opts.tags,
+	})
+
 	kc := keychain
 	if opts.auth != nil {
 		kc = authn.NewMultiKeychain(staticKeychain{opts.imageRepo, opts.auth}, kc)
@@ -287,6 +316,7 @@ func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, 
 		publish.WithAuthFromKeychain(kc),
 		publish.WithNamer(namer(opts)),
 		publish.WithUserAgent(userAgent),
+		publish.WithTransport(newLoggingTransport(ctx)),
 	}
 
 	if len(opts.tags) > 0 {
@@ -299,8 +329,17 @@ func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, 
 	}
 	ref, err := p.Publish(ctx, r, opts.ip)
 	if err != nil {
+		tflog.Error(ctx, "publish failed", map[string]interface{}{
+			"importpath": opts.ip,
+			"repo":       opts.imageRepo,
+			"error":      err.Error(),
+		})
 		return "", fmt.Errorf("publish: %w", err)
 	}
+
+	tflog.Debug(ctx, "published image", map[string]interface{}{
+		"ref": ref.String(),
+	})
 	return ref.String(), nil
 }
 
@@ -433,4 +472,123 @@ func (a staticAuthenticator) Authorization() (*authn.AuthConfig, error) {
 		Username: a.b.Username,
 		Password: a.b.Password,
 	}, nil
+}
+
+// loggingTransport wraps an http.RoundTripper to log registry requests and responses.
+// Logs at TRACE level for all requests, and logs full request/response bodies on errors
+// to help debug issues like MANIFEST_INVALID.
+type loggingTransport struct {
+	inner http.RoundTripper
+	ctx   context.Context
+}
+
+func newLoggingTransport(ctx context.Context) http.RoundTripper {
+	return &loggingTransport{
+		inner: http.DefaultTransport,
+		ctx:   ctx,
+	}
+}
+
+func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx := t.ctx
+
+	// Log request at trace level
+	tflog.Trace(ctx, "registry request",
+		map[string]interface{}{
+			"method":       req.Method,
+			"url":          req.URL.String(),
+			"content_type": req.Header.Get("Content-Type"),
+		})
+
+	// Capture request body for potential error logging
+	var reqBody []byte
+	if req.Body != nil && shouldLogBody(req.Header.Get("Content-Type")) {
+		var err error
+		reqBody, err = io.ReadAll(req.Body)
+		if err != nil {
+			tflog.Warn(ctx, "failed to read request body for logging", map[string]interface{}{"error": err.Error()})
+		} else {
+			req.Body = io.NopCloser(bytes.NewReader(reqBody))
+		}
+	}
+
+	start := time.Now()
+	resp, err := t.inner.RoundTrip(req)
+	duration := time.Since(start)
+
+	if err != nil {
+		tflog.Error(ctx, "registry request failed",
+			map[string]interface{}{
+				"method":   req.Method,
+				"url":      req.URL.String(),
+				"error":    err.Error(),
+				"duration": duration.String(),
+			})
+		return resp, err
+	}
+
+	// Log response at trace level
+	tflog.Trace(ctx, "registry response",
+		map[string]interface{}{
+			"method":       req.Method,
+			"url":          req.URL.String(),
+			"status":       resp.StatusCode,
+			"duration":     duration.String(),
+			"content_type": resp.Header.Get("Content-Type"),
+		})
+
+	// On error responses, log full details to help debug MANIFEST_INVALID and similar errors
+	if resp.StatusCode >= 400 {
+		t.logErrorDetails(ctx, req, reqBody, resp)
+	}
+
+	return resp, nil
+}
+
+// logErrorDetails logs detailed request/response information for failed registry operations.
+// Full request/response bodies are only included at TRACE level.
+func (t *loggingTransport) logErrorDetails(ctx context.Context, req *http.Request, reqBody []byte, resp *http.Response) {
+	attrs := map[string]interface{}{
+		"method": req.Method,
+		"url":    req.URL.String(),
+		"status": resp.StatusCode,
+	}
+
+	traceLevel := logging.LogLevel() == "TRACE"
+
+	// Include request body (typically the manifest) only at TRACE level
+	if traceLevel && len(reqBody) > 0 {
+		attrs["request_body"] = string(reqBody)
+	}
+
+	// Capture response body (contains error details)
+	if resp.Body != nil {
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			attrs["response_body_error"] = err.Error()
+		} else {
+			if traceLevel {
+				attrs["response_body"] = string(respBody)
+			}
+			// Restore body for further processing
+			resp.Body = io.NopCloser(bytes.NewReader(respBody))
+		}
+	}
+
+	// Include request headers only at TRACE level
+	if traceLevel {
+		if reqDump, err := httputil.DumpRequestOut(req, false); err == nil {
+			attrs["request_headers"] = string(reqDump)
+		}
+	}
+
+	tflog.Error(ctx, "registry error response", attrs)
+}
+
+// shouldLogBody returns true if the content type indicates a body worth logging.
+func shouldLogBody(contentType string) bool {
+	// Log manifest and JSON bodies which are relevant for debugging MANIFEST_INVALID
+	return strings.Contains(contentType, "application/json") ||
+		strings.Contains(contentType, "application/vnd.oci") ||
+		strings.Contains(contentType, "application/vnd.docker")
 }
