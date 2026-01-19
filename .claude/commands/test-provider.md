@@ -41,30 +41,37 @@ The test uses ttl.sh, a free ephemeral container registry that requires no authe
    echo "Test directory: $TEST_DIR"
    ```
 
-3. Initialise and apply with trace logging to verify registry operations:
+3. Initialise Terraform:
    ```bash
    cd "$TEST_DIR" && rm -f .terraform.lock.hcl && terraform init
    ```
 
-4. Run terraform apply with trace logging enabled:
+4. Run terraform plan:
    ```bash
-   cd "$TEST_DIR" && TF_LOG=TRACE terraform apply -auto-approve 2>&1 | tee /tmp/ko-provider-test.log
+   cd "$TEST_DIR" && terraform plan -out tf.out
    ```
 
-5. Check the logs for registry operations:
+5. If the plan looks good, apply it:
    ```bash
-   grep -E "(registry|ERROR)" /tmp/ko-provider-test.log | head -50
+   cd "$TEST_DIR" && terraform apply tf.out
    ```
 
-6. Clean up (optional - also removes provider from local mirror):
+6. Verify the image was pushed by checking the output shows a valid image reference.
+
+7. Clean up (removes test directory and provider from local mirror):
    ```bash
    rm -rf "$TEST_DIR"
    rm -f ~/.terraform.d/plugins/registry.terraform.io/ko-build/ko/0.0.100/darwin_arm64/terraform-provider-ko
    ```
 
-## Verifying the fix
+## Debugging
 
-After fixing the logging:
-- 401 responses on `/v2/` should NOT appear as ERROR
-- 404 responses for blob/manifest HEAD checks should NOT appear as ERROR
-- Actual errors (400 MANIFEST_INVALID, 500 server errors) SHOULD appear as ERROR
+To see detailed provider logs, set `TF_LOG=TRACE`:
+```bash
+cd "$TEST_DIR" && TF_LOG=TRACE terraform apply -auto-approve 2>&1 | tee /tmp/ko-provider-test.log
+```
+
+Then examine the logs:
+```bash
+less /tmp/ko-provider-test.log
+```
