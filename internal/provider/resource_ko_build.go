@@ -545,8 +545,14 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	return resp, nil
 }
 
-// logErrorDetails logs detailed request/response information for failed registry operations.
+// logErrorDetails logs detailed request/response information for registry operations.
 // Full request/response bodies are only included at TRACE level.
+//
+// Not all 4xx responses are errors:
+//   - 401 on /v2/ is the standard Docker registry auth challenge (client then fetches token)
+//   - 404 on HEAD requests are existence checks (blob/manifest not found = needs upload)
+//
+// These are logged at DEBUG level. Actual errors (400, 403, 5xx) are logged at ERROR.
 func (t *loggingTransport) logErrorDetails(ctx context.Context, req *http.Request, reqBody []byte, resp *http.Response) {
 	attrs := map[string]interface{}{
 		"method": req.Method,
@@ -582,7 +588,29 @@ func (t *loggingTransport) logErrorDetails(ctx context.Context, req *http.Reques
 		}
 	}
 
-	tflog.Error(ctx, "registry error response", attrs)
+	// Determine log level based on response type
+	if isExpectedProtocolResponse(req, resp) {
+		tflog.Debug(ctx, "registry response", attrs)
+	} else {
+		tflog.Error(ctx, "registry error response", attrs)
+	}
+}
+
+// isExpectedProtocolResponse returns true for HTTP responses that are part of
+// normal registry protocol operation, not actual errors.
+func isExpectedProtocolResponse(req *http.Request, resp *http.Response) bool {
+	// 401 on /v2/ is the auth challenge - client will fetch token and retry
+	if resp.StatusCode == http.StatusUnauthorized && strings.HasSuffix(req.URL.Path, "/v2/") {
+		return true
+	}
+
+	// 404 on HEAD requests are existence checks for blobs/manifests
+	// The client checks if content exists before uploading; 404 means "upload needed"
+	if resp.StatusCode == http.StatusNotFound && req.Method == http.MethodHead {
+		return true
+	}
+
+	return false
 }
 
 // shouldLogBody returns true if the content type indicates a body worth logging.

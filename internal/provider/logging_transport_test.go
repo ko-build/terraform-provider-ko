@@ -259,3 +259,81 @@ func TestLoggingTransport_PreservesContext(t *testing.T) {
 		t.Error("transport did not preserve context")
 	}
 }
+
+func TestIsExpectedProtocolResponse(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   string
+		path     string
+		status   int
+		expected bool
+	}{
+		{
+			name:     "401 on /v2/ is auth challenge, not error",
+			method:   "GET",
+			path:     "/v2/",
+			status:   401,
+			expected: true,
+		},
+		{
+			name:     "401 on manifest path is real error",
+			method:   "PUT",
+			path:     "/v2/test/manifests/latest",
+			status:   401,
+			expected: false,
+		},
+		{
+			name:     "404 HEAD on blob is existence check, not error",
+			method:   "HEAD",
+			path:     "/v2/test/blobs/sha256:abc123",
+			status:   404,
+			expected: true,
+		},
+		{
+			name:     "404 HEAD on manifest is existence check, not error",
+			method:   "HEAD",
+			path:     "/v2/test/manifests/sha256:abc123",
+			status:   404,
+			expected: true,
+		},
+		{
+			name:     "404 GET is real error (not a HEAD check)",
+			method:   "GET",
+			path:     "/v2/test/blobs/sha256:abc123",
+			status:   404,
+			expected: false,
+		},
+		{
+			name:     "400 bad request is real error",
+			method:   "PUT",
+			path:     "/v2/test/manifests/latest",
+			status:   400,
+			expected: false,
+		},
+		{
+			name:     "500 server error is real error",
+			method:   "PUT",
+			path:     "/v2/test/manifests/latest",
+			status:   500,
+			expected: false,
+		},
+		{
+			name:     "403 forbidden is real error",
+			method:   "GET",
+			path:     "/v2/test/manifests/latest",
+			status:   403,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest(tt.method, "https://example.com"+tt.path, nil)
+			resp := &http.Response{StatusCode: tt.status}
+			got := isExpectedProtocolResponse(req, resp)
+			if got != tt.expected {
+				t.Errorf("isExpectedProtocolResponse() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
