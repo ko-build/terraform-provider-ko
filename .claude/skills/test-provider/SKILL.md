@@ -1,4 +1,7 @@
-# Test ko provider locally
+---
+name: test-provider
+description: Shows how to locally test changes to the provider against a real container registry. Use when you made changes and want to see them work end-to-end before opening a PR, or when unit tests pass but you want confidence the provider works in practice, or you're debugging an issue that only reproduces with real registry interactions
+---
 
 Test local changes to the terraform-provider-ko against a real registry.
 
