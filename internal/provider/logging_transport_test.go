@@ -3,6 +3,8 @@ package provider
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/hashicorp/terraform-plugin-log/tflogtest"
 )
 
@@ -333,6 +336,71 @@ func TestIsExpectedProtocolResponse(t *testing.T) {
 			got := isExpectedProtocolResponse(req, resp)
 			if got != tt.expected {
 				t.Errorf("isExpectedProtocolResponse() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsManifestInvalidError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "MANIFEST_INVALID error returns true",
+			err: &transport.Error{
+				Errors: []transport.Diagnostic{
+					{Code: transport.ManifestInvalidErrorCode, Message: "manifest invalid"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "MANIFEST_INVALID among multiple errors returns true",
+			err: &transport.Error{
+				Errors: []transport.Diagnostic{
+					{Code: transport.NameInvalidErrorCode, Message: "name invalid"},
+					{Code: transport.ManifestInvalidErrorCode, Message: "manifest invalid"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "other transport error returns false",
+			err: &transport.Error{
+				Errors: []transport.Diagnostic{
+					{Code: transport.BlobUnknownErrorCode, Message: "blob unknown"},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "wrapped MANIFEST_INVALID error returns true",
+			err: fmt.Errorf("publish failed: %w", &transport.Error{
+				Errors: []transport.Diagnostic{
+					{Code: transport.ManifestInvalidErrorCode, Message: "manifest invalid"},
+				},
+			}),
+			want: true,
+		},
+		{
+			name: "non-transport error returns false",
+			err:  errors.New("some other error"),
+			want: false,
+		},
+		{
+			name: "nil error returns false",
+			err:  nil,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isManifestInvalidError(tt.err)
+			if got != tt.want {
+				t.Errorf("isManifestInvalidError() = %v, want %v", got, tt.want)
 			}
 		})
 	}

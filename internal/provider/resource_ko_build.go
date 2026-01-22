@@ -22,6 +22,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/ko/pkg/build"
 	"github.com/google/ko/pkg/commands/options"
 	"github.com/google/ko/pkg/publish"
@@ -300,6 +301,19 @@ func namer(opts buildOptions) publish.Namer {
 	})
 }
 
+// isManifestInvalidError reports whether err is a MANIFEST_INVALID registry error.
+func isManifestInvalidError(err error) bool {
+	var terr *transport.Error
+	if errors.As(err, &terr) {
+		for _, e := range terr.Errors {
+			if e.Code == transport.ManifestInvalidErrorCode {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, error) {
 	tflog.Debug(ctx, "publishing image", map[string]interface{}{
 		"importpath": opts.ip,
@@ -327,14 +341,42 @@ func doPublish(ctx context.Context, r build.Result, opts buildOptions) (string, 
 	if err != nil {
 		return "", fmt.Errorf("NewDefault: %w", err)
 	}
-	ref, err := p.Publish(ctx, r, opts.ip)
-	if err != nil {
-		tflog.Error(ctx, "publish failed", map[string]interface{}{
-			"importpath": opts.ip,
-			"repo":       opts.imageRepo,
-			"error":      err.Error(),
-		})
-		return "", fmt.Errorf("publish: %w", err)
+
+	// Retry MANIFEST_INVALID errors, which can occur due to registry eventual
+	// consistency. Some registries (notably GCR) return 201 for blob uploads
+	// before the blob is visible to all endpoints. If the manifest push arrives
+	// before blobs propagate, the registry returns MANIFEST_INVALID.
+	//
+	// We retry a small number of times with a short delay. This handles the
+	// transient propagation case (typically succeeds within 1-2s) without
+	// spinning on genuinely invalid manifests that will never succeed.
+	const maxAttempts = 3
+	const retryDelay = time.Second
+
+	var ref name.Reference
+	for attempt := 1; ; attempt++ {
+		ref, err = p.Publish(ctx, r, opts.ip)
+		if err == nil {
+			break
+		}
+
+		if !isManifestInvalidError(err) || attempt >= maxAttempts {
+			tflog.Error(ctx, "publish failed", map[string]interface{}{
+				"importpath": opts.ip,
+				"repo":       opts.imageRepo,
+				"error":      err.Error(),
+			})
+			return "", fmt.Errorf("publish: %w", err)
+		}
+
+		tflog.Debug(ctx, "retrying after MANIFEST_INVALID (registry propagation delay)",
+			map[string]interface{}{
+				"attempt":      attempt,
+				"max_attempts": maxAttempts,
+				"delay":        retryDelay.String(),
+				"importpath":   opts.ip,
+			})
+		time.Sleep(retryDelay)
 	}
 
 	tflog.Debug(ctx, "published image", map[string]interface{}{
